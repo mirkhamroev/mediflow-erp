@@ -1,0 +1,14 @@
+{{ site_name }} — verify your email address
+
+{% if full_name %}Hi {{ full_name }},{% else %}Hi,{% endif %}
+
+Thanks for creating a {{ site_name }} account. Use this code to finish setting it up:
+
+    {{ code }}
+
+The code expires in {{ ttl_minutes }} minutes and can be used {{ max_attempts }} time{{ max_attempts|pluralize }} before it is locked.
+
+Didn't sign up for {{ site_name }}? You can safely ignore this email — the account stays inactive until the code is entered. Never share this code with anyone; {{ site_name }} staff will never ask you for it.
+
+This is an automated message, please don't reply.
+© {% now "Y" %} {{ site_name }}
