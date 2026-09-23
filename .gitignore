@@ -5,3 +5,5 @@
 /media/
 /image/
 *db.sqlite3
+*/tests/*
+test_*
