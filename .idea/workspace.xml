@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="c85ec6ab-72f9-46b7-8ca6-3482e7299c8e" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/apps/accounts/serializers.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/commons/exceptions.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/commons/middleware.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/commons/mixins.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/commons/pagination.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/commons/permissions.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/commons/swagger.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/commons/throttles.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/commons/utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/commons/validators.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="225" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;mirkhamroev&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;git@github.com:mirkhamroev/mediflow-erp.git&quot;,
+    &quot;accountId&quot;: &quot;d3bd1cd1-5711-4d06-b8cf-b2f2860d597b&quot;
+  }
+}</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0004593877478094" />
+      <entry key="S2" value="1.146401277165121" />
+      <entry key="S5" value="1.4646923198777673" />
+      <entry key="S10" value="1.7578711257780428" />
+      <entry key="S30" value="4.157235030868473" />
+      <entry key="S60" value="10.048367305816598" />
+      <entry key="M2" value="21.49474716825453" />
+      <entry key="M5" value="40.669880270625036" />
+      <entry key="M10" value="52.38299523136065" />
+      <entry key="M15" value="57.41510848245281" />
+      <entry key="M30" value="67.90592025695956" />
+      <entry key="H1" value="114.27831642245869" />
+      <entry key="H2" value="264.1915640431753" />
+      <entry key="H4" value="512.2618268766357" />
+      <entry key="D1" value="1010.8954482119467" />
+      <entry key="W1" value="1148.8622252767564" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="2.727812070960316E-87" />
+      <entry key="S2" value="2.2853546848160133E-22" />
+      <entry key="S5" value="2.2058778677407887E-9" />
+      <entry key="S10" value="4.697698921972547E-5" />
+      <entry key="S30" value="0.039855538914659934" />
+      <entry key="S60" value="0.3062907701074607" />
+      <entry key="M2" value="1.1094520822003164" />
+      <entry key="M5" value="2.6733652076039105" />
+      <entry key="M10" value="3.6434585829224684" />
+      <entry key="M15" value="4.059840453276353" />
+      <entry key="M30" value="4.940368064359008" />
+      <entry key="H1" value="8.001059895219033" />
+      <entry key="H2" value="15.293862025903039" />
+      <entry key="H4" value="24.942109246382646" />
+      <entry key="D1" value="41.17848837299851" />
+      <entry key="W1" value="45.268395593836615" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.9012504626108302" />
+      <entry key="MS500" value="0.9795028688900915" />
+      <entry key="S2" value="1.0901399913815994" />
+      <entry key="S5" value="1.3892594086832994" />
+      <entry key="S10" value="1.691369775467985" />
+      <entry key="S30" value="4.068252793697142" />
+      <entry key="S60" value="10.167561486685273" />
+      <entry key="M2" value="22.40181799980563" />
+      <entry key="M5" value="43.19357013888668" />
+      <entry key="M10" value="55.93131327659951" />
+      <entry key="M15" value="61.405728142623374" />
+      <entry key="M30" value="72.8053126424831" />
+      <entry key="H1" value="122.24613423049453" />
+      <entry key="H2" value="279.45096617091184" />
+      <entry key="H4" value="537.1733679397455" />
+      <entry key="D1" value="1052.0647238947158" />
+      <entry key="W1" value="1194.1291491536792" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3JM47zlgIbfCwSuugLOjEQsfLKz" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;develop&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/mirshod/Applications/mediflow-erp&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;python.packages.toolwindow.project.migrated.to.right.top.v2&quot;: &quot;true&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-eff1e8def5f5-5bd6d13a2a75-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-262.10315.174" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="c85ec6ab-72f9-46b7-8ca6-3482e7299c8e" name="Changes" comment="" />
+      <created>1789457439669</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1789457439669</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
