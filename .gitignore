@@ -1,3 +1,7 @@
 *.venv/*
 *.pyc
 .env
+.DS_Store
+/media/
+/image/
+*db.sqlite3

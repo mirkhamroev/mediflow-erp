@@ -63,6 +63,18 @@ INSTALLED_APPS = [
 
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        # JWT first: SessionAuthentication has no authenticate_header, so when it
+        # leads, unauthenticated API requests get 403 instead of 401.
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated'
+    ]
+}
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -189,3 +201,15 @@ OTP_MAX_ATTEMPTS = 5
 
 # ===== CHANGE #13 (step 5): brand name used in email subjects and templates.
 SITE_NAME = 'MediFlow ERP'
+
+CACHES = {
+    'default' : {
+        'BACKEND' : 'django_redis.cache.RedisCache',
+        'LOCATION' : 'redis://localhost:6379/1',
+        'OPTIONS' : {
+            "CLIENT_CLASS" : "django_redis.client.DefaultClient"
+        }
+    }
+}
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
