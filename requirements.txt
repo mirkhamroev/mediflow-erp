@@ -1,0 +1,16 @@
+Django
+djangorestframework
+djangorestframework-simplejwt  # CHANGE #16 (step 6): JWTAuthentication is configured in settings.REST_FRAMEWORK
+django-filter
+psycopg
+drf-spectacular
+drf-yasg  # CHANGE #17 (step 6): used by INSTALLED_APPS and core/urls.py (swagger/redoc) but was never listed
+django-simple-history
+celery
+redis
+pytest
+pytest-django
+factory-boy
+gunicorn
+python-dotenv
+Pillow

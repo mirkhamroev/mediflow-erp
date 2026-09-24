@@ -1,0 +1,137 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Verify your email</title>
+    <!--[if mso]>
+    <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+    <![endif]-->
+    <style>
+        /* Only Apple Mail / iOS / some others honour this; every colour below is also
+           set inline so the email degrades to the light palette elsewhere. */
+        @media (prefers-color-scheme: dark) {
+            .bg-page   { background-color: #14181d !important; }
+            .bg-card   { background-color: #1c2128 !important; }
+            .bg-code   { background-color: #14181d !important; border-color: #30363d !important; }
+            .text-body { color: #c9d1d9 !important; }
+            .text-mute { color: #8b949e !important; }
+            .text-head { color: #f0f6fc !important; }
+            .text-code { color: #f0f6fc !important; }
+            .rule      { border-color: #30363d !important; }
+        }
+        @media only screen and (max-width: 600px) {
+            .sm-px { padding-left: 24px !important; padding-right: 24px !important; }
+            .sm-code { font-size: 32px !important; letter-spacing: 8px !important; }
+        }
+    </style>
+</head>
+<body class="bg-page" style="margin:0; padding:0; width:100%; background-color:#f4f6f8; -webkit-font-smoothing:antialiased;">
+
+<!-- Preheader: shown in the inbox preview, hidden in the body. -->
+<div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+    Your {{ site_name }} verification code is {{ code }}. It expires in {{ ttl_minutes }} minutes.
+    &#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;
+</div>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="bg-page" style="background-color:#f4f6f8;">
+    <tr>
+        <td align="center" style="padding:32px 12px;">
+
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px; max-width:600px;">
+
+                <!-- Brand -->
+                <tr>
+                    <td align="center" style="padding:0 0 24px 0;">
+                        <span class="text-head" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:20px; font-weight:700; letter-spacing:-0.2px; color:#1a2634;">
+                            {{ site_name }}
+                        </span>
+                    </td>
+                </tr>
+
+                <!-- Card -->
+                <tr>
+                    <td class="bg-card" style="background-color:#ffffff; border-radius:12px; box-shadow:0 1px 3px rgba(16,24,40,0.08);">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+
+                            <tr>
+                                <td class="sm-px" style="padding:40px 40px 0 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                                    <h1 class="text-head" style="margin:0 0 12px 0; font-size:24px; line-height:32px; font-weight:700; color:#1a2634;">
+                                        Verify your email address
+                                    </h1>
+                                    <p class="text-body" style="margin:0; font-size:15px; line-height:24px; color:#44505f;">
+                                        {% if full_name %}Hi {{ full_name }},{% else %}Hi,{% endif %}
+                                        thanks for creating a {{ site_name }} account. Enter the code below to finish
+                                        setting it up.
+                                    </p>
+                                </td>
+                            </tr>
+
+                            <!-- Code -->
+                            <tr>
+                                <td class="sm-px" style="padding:28px 40px 0 40px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                                        <tr>
+                                            <td class="bg-code" align="center" style="background-color:#f4f6f8; border:1px solid #e3e8ee; border-radius:10px; padding:22px 16px;">
+                                                <div class="text-mute" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:11px; line-height:16px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:#6b7a8d; padding-bottom:10px;">
+                                                    Verification code
+                                                </div>
+                                                <div class="text-code sm-code" style="font-family:'SFMono-Regular',Menlo,Consolas,'Liberation Mono',monospace; font-size:38px; line-height:44px; font-weight:700; letter-spacing:11px; text-indent:11px; color:#1a2634;">
+                                                    {{ code }}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td class="sm-px" style="padding:20px 40px 0 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                                    <p class="text-body" style="margin:0; font-size:15px; line-height:24px; color:#44505f;">
+                                        This code expires in <strong style="color:#1a2634;">{{ ttl_minutes }} minutes</strong>
+                                        and can be used {{ max_attempts }} time{{ max_attempts|pluralize }} before it is
+                                        locked.
+                                    </p>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td class="sm-px" style="padding:28px 40px 0 40px;">
+                                    <hr class="rule" style="border:none; border-top:1px solid #e3e8ee; margin:0;">
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td class="sm-px" style="padding:20px 40px 40px 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                                    <p class="text-mute" style="margin:0; font-size:13px; line-height:20px; color:#6b7a8d;">
+                                        Didn't sign up for {{ site_name }}? You can safely ignore this email &mdash;
+                                        the account stays inactive until the code is entered. Never share this code
+                                        with anyone; {{ site_name }} staff will never ask you for it.
+                                    </p>
+                                </td>
+                            </tr>
+
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                    <td align="center" style="padding:24px 16px 0 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                        <p class="text-mute" style="margin:0; font-size:12px; line-height:18px; color:#8b97a6;">
+                            This is an automated message, please don't reply.<br>
+                            &copy; {% now "Y" %} {{ site_name }}
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
