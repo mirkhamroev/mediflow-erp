@@ -101,6 +101,7 @@ class EmailVerificationOTP(models.Model):
     # ===== CHANGE #18 (step 6): pending address for EMAIL_CHANGE codes. The user's real
     # `email` is only overwritten after this code is confirmed (migration 0005). =====
     new_email = models.EmailField(null=True, blank=True)  # For email change requests
+    new_password = models.CharField(max_length=255, null=True, blank=True)  # For password reset requests
     purpose = models.CharField(max_length=20, choices=PURPOSE.choices, default=PURPOSE.REGISTRATION)
     is_used = models.BooleanField(default=False)
 
@@ -117,7 +118,9 @@ class EmailVerificationOTP(models.Model):
     @classmethod
     # ===== CHANGE #19 (step 6): new `new_email` parameter. EmailChangeRequestSerializer
     # already passed it, which raised TypeError -> HTTP 500 on every email-change request. =====
-    def create_code(cls, user, purpose=None, new_email=None):
+    # ===== CHANGE #20 (step 6): new `new_password` parameter. PasswordResetRequestSerializer
+    # already passed it, which raised TypeError -> HTTP 500 on every password-reset request. =====
+    def create_code(cls, user, purpose=None, new_email=None, new_password=None):
         # ===== CHANGE #6 (step 3): `purpose` is now a parameter.
         # Previously every row fell back to the model default "registration", so the
         # password_reset / email_change choices could never actually be written. =====
@@ -138,6 +141,7 @@ class EmailVerificationOTP(models.Model):
             purpose=purpose,
             attempts=settings.OTP_MAX_ATTEMPTS,
             new_email=new_email,  # CHANGE #19 (step 6): stored only for EMAIL_CHANGE codes
+            new_password=new_password,  # CHANGE #20 (step 6): stored only for PASSWORD_RESET codes
         )
         return otp_record, plain_code  # Return both the OTP record and the plain code for sending in the email
 

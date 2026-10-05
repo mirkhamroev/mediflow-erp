@@ -2,7 +2,8 @@ from django.shortcuts import render
 from .models import User, EmailVerificationOTP
 # CHANGE #24 (step 6): dropped UserUpdateSerializer (removed), added EmailChangeRequestSerializer
 from .serializers import (UserRegistrationSerializer, EmailVerificationSerializer,
-                          UserProfileSerializer, EmailChangeRequestSerializer, EmailChangeConfirmSerializer)
+                          UserProfileSerializer, EmailChangeRequestSerializer, EmailChangeConfirmSerializer, 
+                          ResetPasswordRequestSerializer, ResetPasswordConfirmSerializer)
 # ----- OLD CODE -----
 # from .serializers import (UserRegistrationSerializer, EmailVerificationSerializer, UserUpdateSerializer,
 #                           UserProfileSerializer, EmailChangeConfirmSerializer)
@@ -16,7 +17,7 @@ from rest_framework.generics import GenericAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db import transaction  # CHANGE #11 (step 4)
 from .tasks import send_verification_email  # CHANGE #14 (step 5)
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 # Create your views here.
 
@@ -52,7 +53,9 @@ class RegisterAPIView(GenericAPIView):
 class MeAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser] # Allow file uploads for the image field
+    # JSONParser must stay: multipart handles the image upload, but plain
+    # profile updates (name, phone) arrive as JSON.
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     http_method_names = ['get', 'patch', 'delete']  # no PUT: partial updates only
 
     def get_object(self):
@@ -179,3 +182,25 @@ class ResendVerificationEmailAPIView(GenericAPIView):
             return Response({"message": "Verification email resent successfully."}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({"error": "User with this email does not exist."}, status=status.HTTP_400_BAD_REQUEST)
+
+class PasswordResetRequestAPIView(GenericAPIView):
+    serializer_class = ResetPasswordRequestSerializer
+    # AllowAny: a user who forgot their password cannot authenticate.
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Password reset request initiated. Please check your email for verification code."}, status=status.HTTP_200_OK)
+
+class PasswordResetConfirmAPIView(GenericAPIView):
+    serializer_class = ResetPasswordConfirmSerializer
+    # AllowAny: a user who forgot their password cannot authenticate.
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Password reset successfully."}, status=status.HTTP_200_OK)

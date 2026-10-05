@@ -1,12 +1,13 @@
 from rest_framework.routers import DefaultRouter
 # CHANGE #29 (step 6): UserDetailAPIView -> MeAPIView + email-change + resend views
 from .views import (RegisterAPIView, VerifyEmailAPIView, ResendVerificationEmailAPIView,
-                    MeAPIView, EmailChangeRequestAPIView, EmailChangeConfirmAPIView)
+                    MeAPIView, EmailChangeRequestAPIView, EmailChangeConfirmAPIView,
+                    PasswordResetRequestAPIView, PasswordResetConfirmAPIView)
 # ----- OLD CODE -----
 # from .views import RegisterAPIView, VerifyEmailAPIView, UserDetailAPIView
 # CHANGE #30 (step 6): JWT login / refresh -- settings use JWTAuthentication but no
 # endpoint issued tokens, so no IsAuthenticated view could ever be reached.
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView, TokenBlacklistView
 from django.urls import path, include
 
 # router = DefaultRouter()
@@ -26,10 +27,14 @@ urlpatterns = [
     # CHANGE #30 (step 6): POST {email, password} -> {access, refresh}
     path('token/', TokenObtainPairView.as_view(), name='token-obtain'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('token/blacklist/', TokenBlacklistView.as_view(), name='token-blacklist'),
+    path('token/verify/', TokenVerifyView.as_view(), name='token-verify'),  # CHANGE #32 (step 6): JWT verify endpoint
     # CHANGE #29 (step 6): own-profile + two-step email change
     path('me/', MeAPIView.as_view(), name='me'),
     path('me/email/', EmailChangeRequestAPIView.as_view(), name='email-change'),
     path('me/email/confirm/', EmailChangeConfirmAPIView.as_view(), name='email-change-confirm'),
+    path('password-reset/', PasswordResetRequestAPIView.as_view(), name='password-reset'),
+    path('password-reset/confirm/', PasswordResetConfirmAPIView.as_view(), name='password-reset-confirm'),
     # ----- OLD CODE -----
     # path('user-details/', UserDetailAPIView.as_view(), name='user-details'),
 ]

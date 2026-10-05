@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import check_password, make_password
 from .models import User, EmailVerificationOTP
 from apps.commons.validators import validate_email, validate_phone_number, image_size_validator
 from .tasks import send_async_email, send_verification_email  # CHANGE #14 (step 5)
@@ -240,5 +240,84 @@ class EmailChangeConfirmSerializer(serializers.Serializer):
             user.save(update_fields=["email", "updated_at"])
             # ----- OLD CODE -----
             # user.save(update_fields=["email", 'updated_at'])])
+            otp_record.mark_used()
+        return user
+
+
+class ResetPasswordRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(validators=[validate_email])
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_email(self, value):
+        # CHANGE #24 (step 6): normalize_email() (lowercases the domain only) instead of
+        # .lower() -- same normalization UserManager uses at registration. Login matches
+        # the email exactly, so a different rule here could lock the user out.
+        value = User.objects.normalize_email(value)
+        if not User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("User with this email does not exist.")
+        return value
+
+    def save(self):
+        email = self.validated_data['email']
+        password = self.validated_data['password']
+        user = User.objects.get(email__iexact=email)
+        with transaction.atomic():
+            user.otps.filter(purpose=EmailVerificationOTP.PURPOSE.PASSWORD_RESET, is_used=False).update(is_used=True)
+            otp_record, plain_code = EmailVerificationOTP.create_code(
+                # Store the hash, not the plaintext, so the pending password
+                # is never readable from the otp table.
+                user, purpose=EmailVerificationOTP.PURPOSE.PASSWORD_RESET,
+                new_password=make_password(password)
+            )
+            transaction.on_commit(lambda: send_verification_email.delay(
+                recipient_email=email,
+                code=plain_code,
+                full_name=user.full_name
+            ))
+
+            return user
+
+class ResetPasswordConfirmSerializer(serializers.Serializer):
+    # `email` is a declared field so a missing one fails with "This field is
+    # required." instead of a misleading "user does not exist" from validate().
+    email = serializers.EmailField(validators=[validate_email])
+    code = serializers.CharField(max_length=6, min_length=6)
+
+    def validate(self, attrs):
+        try:
+            user = User.objects.get(email__iexact=attrs['email'])
+        except User.DoesNotExist:
+            raise serializers.ValidationError({"email": "User with this email does not exist."})
+
+        otp_record = (user.otps.filter(purpose=EmailVerificationOTP.PURPOSE.PASSWORD_RESET, is_used=False)
+                      .order_by('-created_at').first())
+        if not otp_record:
+            raise serializers.ValidationError({"code": "No active verification code found for this user."})
+
+        if otp_record.is_expired():
+            raise serializers.ValidationError({"code": "Verification code has expired."})
+
+        if not check_password(attrs['code'], otp_record.hashed_code):
+            remaining = otp_record.register_failed_attempt()
+            if remaining == 0:
+                raise serializers.ValidationError({
+                    "code": "Too many incorrect attempts. This code is no longer valid, "
+                            "please request a new one."
+                })
+            raise serializers.ValidationError({
+                "code": f"Invalid verification code. {remaining} attempt(s) remaining."
+            })
+
+        attrs['user'] = user
+        attrs['otp_record'] = otp_record
+        return attrs
+
+    def save(self):
+        user = self.validated_data['user']
+        otp_record = self.validated_data['otp_record']
+        with transaction.atomic():
+            # new_password is already hashed at request time; assign directly.
+            user.password = otp_record.new_password
+            user.save(update_fields=["password", "updated_at"])
             otp_record.mark_used()
         return user
