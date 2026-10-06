@@ -11,7 +11,8 @@ def get_current_request():
 def get_client_ip(request):
     forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if forwarded_for:
-        return forwarded_for.split(',')[0]
+        # "client, proxy1, proxy2" -> first entry is the original client; proxies add spaces after commas
+        return forwarded_for.split(',')[0].strip()
     return request.META.get('REMOTE_ADDR')
 
 class AuditContextMiddleware:
