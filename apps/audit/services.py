@@ -56,7 +56,8 @@ def log_action(*, action, instance=None, model_name='', object_id='',
     return AuditLog.objects.create(
         action=action,
         user=user,
-        username=getattr(user, 'username', None) if user else None,
+        # get_username() returns USERNAME_FIELD (email here); User.username is None in this project
+        username=user.get_username() if user else None,
         user_role=getattr(user, 'role', None) if user else None,
         model_name=model_name,
         object_id=object_id,

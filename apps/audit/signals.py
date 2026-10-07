@@ -1,3 +1,4 @@
+from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.db.models.signals import post_delete, post_save, pre_save
 
 from apps.commons.mixins import AuditableModelMixin
@@ -77,6 +78,21 @@ def log_delete(sender, instance, **kwargs):
     log_action(action='delete', instance=instance, old_values=_snapshot(instance))
 
 
+def log_user_login(sender, request, user, **kwargs):
+    """
+    user_logged_in: write a LOGIN entry for session-based logins (e.g. Django Admin).
+    """
+    log_action(action='login', instance=user, user=user, request=request)
+
+
+def log_user_logout(sender, request, user, **kwargs):
+    """
+    user_logged_out: write a LOGOUT entry for session-based logouts.
+    """
+    if user is not None:
+        log_action(action='logout', instance=user, user=user, request=request)
+
+
 def connect_signals():
     """
     Connect the handlers for all models; called once from AuditConfig.ready().
@@ -86,3 +102,6 @@ def connect_signals():
     pre_save.connect(capture_old_values, dispatch_uid='audit_capture_old_values')
     post_save.connect(log_create_or_update, dispatch_uid='audit_log_create_or_update')
     post_delete.connect(log_delete, dispatch_uid='audit_log_delete')
+    user_logged_in.connect(log_user_login, dispatch_uid='audit_log_user_login')
+    user_logged_out.connect(log_user_logout, dispatch_uid='audit_log_user_logout')
+
