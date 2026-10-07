@@ -1,10 +1,11 @@
 from django.db import models
 from apps.accounts.models import User
+from apps.commons.mixins import AuditableModelMixin
 import uuid
 
 # Create your models here.
 
-class Organization(models.Model):
+class Organization(AuditableModelMixin, models.Model):
     id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
     name = models.CharField(max_length=255)
     legal_name = models.CharField(max_length=255)
@@ -25,7 +26,7 @@ class Organization(models.Model):
     def __str__(self):
         return self.name
 
-class Hospital(models.Model):
+class Hospital(AuditableModelMixin, models.Model):
     id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='hospitals')
     name = models.CharField(max_length=255)
@@ -47,7 +48,7 @@ class Hospital(models.Model):
         return self.name
 
 
-class Department(models.Model):
+class Department(AuditableModelMixin, models.Model):
     id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
     hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name='departments')
     name = models.CharField(max_length=255)
