@@ -2,12 +2,13 @@ from rest_framework.routers import DefaultRouter
 # CHANGE #29 (step 6): UserDetailAPIView -> MeAPIView + email-change + resend views
 from .views import (RegisterAPIView, VerifyEmailAPIView, ResendVerificationEmailAPIView,
                     MeAPIView, EmailChangeRequestAPIView, EmailChangeConfirmAPIView,
-                    PasswordResetRequestAPIView, PasswordResetConfirmAPIView)
+                    PasswordResetRequestAPIView, PasswordResetConfirmAPIView,
+                    AuditedTokenObtainPairView, AuditedTokenBlacklistView)
 # ----- OLD CODE -----
 # from .views import RegisterAPIView, VerifyEmailAPIView, UserDetailAPIView
 # CHANGE #30 (step 6): JWT login / refresh -- settings use JWTAuthentication but no
 # endpoint issued tokens, so no IsAuthenticated view could ever be reached.
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView, TokenBlacklistView
+from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 from django.urls import path, include
 
 # router = DefaultRouter()
@@ -25,9 +26,9 @@ urlpatterns = [
     # ----- OLD CODE -----
     # path('resend-verification-email/', RegisterAPIView.as_view(), name='resend-verification-email'),
     # CHANGE #30 (step 6): POST {email, password} -> {access, refresh}
-    path('token/', TokenObtainPairView.as_view(), name='token-obtain'),
+    path('token/', AuditedTokenObtainPairView.as_view(), name='token-obtain'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
-    path('token/blacklist/', TokenBlacklistView.as_view(), name='token-blacklist'),
+    path('token/blacklist/', AuditedTokenBlacklistView.as_view(), name='token-blacklist'),
     path('token/verify/', TokenVerifyView.as_view(), name='token-verify'),  # CHANGE #32 (step 6): JWT verify endpoint
     # CHANGE #29 (step 6): own-profile + two-step email change
     path('me/', MeAPIView.as_view(), name='me'),

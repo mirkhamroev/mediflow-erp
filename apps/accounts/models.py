@@ -3,6 +3,7 @@ from django.db.models import F  # CHANGE #9 (step 4): atomic attempt decrement
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AbstractUser
 import uuid
+from apps.commons.mixins import AuditableModelMixin
 from apps.commons.validators import validate_email, validate_phone_number
 from .managers import UserManager
 from django.utils import timezone
@@ -19,7 +20,8 @@ import random, secrets
 # Create your models here.
 
 
-class User(AbstractUser):
+class User(AuditableModelMixin, AbstractUser):
+    audit_exclude_fields = ('updated_at', 'last_login')
     class Role(models.TextChoices):
         ACCOUNTANT = "accountant", "Accountant"
         ADMIN = "admin", "Admin"
@@ -181,3 +183,111 @@ class EmailVerificationOTP(models.Model):
 
     def is_expired(self):
         return self.expires_at < timezone.now()
+
+# ===== CHANGE #33 (step 7): sign-up data waits here until the email is confirmed.
+# Previously RegisterAPIView created the User (is_active=False) straight away, so an
+# unconfirmed sign-up still occupied the unique email/phone (a typo locked the real
+# owner out), and "resend verification" could re-activate deactivated accounts.
+# Now no User row exists until the OTP is verified; complete() creates it already active. =====
+class PendingRegistration(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    # unique: registering the same email again replaces the pending row instead of piling up
+    email = models.EmailField(max_length=255, unique=True)
+    phone_number = models.CharField(max_length=20)
+    full_name = models.CharField(max_length=255)
+    password = models.CharField(max_length=255)  # already hashed with make_password, never plaintext
+    hashed_code = models.CharField(max_length=255)
+    attempts = models.PositiveSmallIntegerField(default=0)  # wrong guesses REMAINING, like EmailVerificationOTP
+    expires_at = models.DateTimeField()
+    # default (not auto_now_add) so a repeated sign-up can reset it; purge_pending_registrations reads it
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "Pending registration"
+        verbose_name_plural = "Pending registrations"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"pending : {self.email}"
+
+    @staticmethod
+    def _fresh_code():
+        """
+        Generate a new 6-digit code. Returns (plain_code, fields) where fields are the
+        hashed code, a new expiry and a full attempt budget, ready to store on the row.
+        The plain code only goes into the email, never into the database.
+        """
+        plain_code = str(secrets.randbelow(1000000)).zfill(6)
+        fields = {
+            "hashed_code": make_password(plain_code),
+            "expires_at": timezone.now() + timedelta(minutes=settings.OTP_TTL_MINUTES),
+            "attempts": settings.OTP_MAX_ATTEMPTS,
+        }
+        return plain_code, fields
+
+    @classmethod
+    def start(cls, *, email, phone_number, full_name, raw_password):
+        """
+        Store (or overwrite) the sign-up for this email and issue a verification code.
+        Overwriting lets someone who mistyped their phone/name, or lost the email,
+        simply register again. Returns (pending_registration, plain_code).
+        """
+        plain_code, code_fields = cls._fresh_code()
+        pending, _ = cls.objects.update_or_create(
+            email=email,
+            defaults={
+                "phone_number": phone_number,
+                "full_name": full_name,
+                "password": make_password(raw_password),
+                "created_at": timezone.now(),
+                **code_fields,
+            },
+        )
+        return pending, plain_code
+
+    def issue_code(self):
+        """
+        Replace the current code with a new one (resend). The old code stops working
+        immediately because only the latest hash is stored. Returns the plain code.
+        """
+        plain_code, code_fields = self._fresh_code()
+        for field, value in code_fields.items():
+            setattr(self, field, value)
+        self.save(update_fields=list(code_fields))
+        return plain_code
+
+    def is_expired(self):
+        """True once the current code's TTL (settings.OTP_TTL_MINUTES) has passed."""
+        return self.expires_at < timezone.now()
+
+    def register_failed_attempt(self):
+        """
+        Spend one attempt after a wrong code and return how many remain. At 0 the code
+        is dead and only a resend (new code) can continue the sign-up.
+        F() keeps two concurrent wrong guesses from overwriting each other's decrement.
+        """
+        if self.attempts > 0:
+            PendingRegistration.objects.filter(pk=self.pk, attempts__gt=0).update(
+                attempts=F("attempts") - 1
+            )
+            self.refresh_from_db(fields=["attempts"])
+        return self.attempts
+
+    def complete(self):
+        """
+        Turn the verified sign-up into a real, active User and delete this pending row.
+        Call inside transaction.atomic(): if the User insert fails (email/phone taken in
+        the meantime -> IntegrityError) the pending row must survive.
+        The password is already hashed, so it is assigned directly instead of going
+        through create_user(), which would hash it a second time.
+        """
+        user = User(
+            email=self.email,
+            phone_number=self.phone_number,
+            full_name=self.full_name,
+            password=self.password,
+            is_active=True,
+        )
+        user.save()
+        self.delete()
+        return user

@@ -1,60 +1,63 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import check_password, make_password
-from .models import User, EmailVerificationOTP
+from .models import User, EmailVerificationOTP, PendingRegistration
 from apps.commons.validators import validate_email, validate_phone_number, image_size_validator
 from .tasks import send_async_email, send_verification_email  # CHANGE #14 (step 5)
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework.validators import UniqueValidator
 
-class UserRegistrationSerializer(serializers.ModelSerializer):
+# ===== CHANGE #34 (step 7): registration no longer creates a User. It stores the sign-up in
+# PendingRegistration and emails a code; the User is created by EmailVerificationSerializer.
+# Plain Serializer instead of ModelSerializer(User): the redeclared email/phone fields had
+# dropped the unique checks, so a taken email/phone hit an IntegrityError -> HTTP 500. =====
+class UserRegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(
         validators=[validate_email]
         )
     phone_number = serializers.CharField(
+        max_length=20,
         validators=[validate_phone_number]
         )
     password = serializers.CharField(
-        write_only=True, 
+        write_only=True,
         min_length=8
         )
+    full_name = serializers.CharField(max_length=255)
 
-    class Meta:
-        model = User
-        fields = ['email', 'phone_number', 'password', 'full_name']
+    def validate_email(self, value):
+        """
+        Normalize like UserManager does and reject emails that already belong to a User.
+        Pending sign-ups don't count: registering again just replaces the pending one.
+        """
+        value = User.objects.normalize_email(value)
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate_phone_number(self, value):
+        """Reject phone numbers that already belong to a User (the column is unique)."""
+        if User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("A user with this phone number already exists.")
+        return value
 
     def create(self, validated_data):
-        # ===== CHANGE #1 (step 3): whole body wrapped in `with transaction.atomic()`.
-        # Without a real transaction the user row was committed even if OTP creation
-        # blew up, and `on_commit` had nothing to hook onto (in autocommit mode it
-        # fires immediately, which defeats the point). =====
+        """
+        Save the sign-up as a PendingRegistration and queue the verification email.
+        on_commit: the email is only sent if the pending row was actually written.
+        """
         with transaction.atomic():
-            user = User.objects.create_user(
+            pending, plain_code = PendingRegistration.start(
                 email=validated_data['email'],
                 phone_number=validated_data['phone_number'],
-                password=validated_data['password'],
-                full_name=validated_data['full_name']
+                full_name=validated_data['full_name'],
+                raw_password=validated_data['password'],
             )
-            # ===== CHANGE #2 (step 3): pass `purpose` explicitly now that create_code
-            # accepts it, so the same table can serve password-reset / email-change. =====
-            _, plain_code = EmailVerificationOTP.create_code(
-                user, purpose=EmailVerificationOTP.PURPOSE.REGISTRATION
-            )
-
-            # ===== CHANGE #3 (step 3): `transaction.atomic(lambda: ...)` -> `transaction.on_commit(...)`.
-            # `transaction.atomic(fn)` treats fn as something to DECORATE: it returns a
-            # wrapped callable and never invokes it, so NO email was ever queued.
-            # `on_commit` defers the enqueue until the surrounding atomic block commits,
-            # so a rolled-back registration sends no mail. =====
-            # ===== CHANGE #14 (step 5): send the templated email instead of the
-            # hand-built f-string body. Subject and copy now live in the task /
-            # templates rather than being duplicated at every call site. =====
             transaction.on_commit(lambda: send_verification_email.delay(
-                recipient_email=user.email,
+                recipient_email=pending.email,
                 code=plain_code,
-                full_name=user.full_name,
+                full_name=pending.full_name,
             ))
-
-        return user
+        return pending
 
 
 # ===== CHANGE #20 (step 6): UserUpdateSerializer removed, replaced by
@@ -65,48 +68,32 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 # validators (validate_phone_number, max_length=20). =====
 
 
-class EmailVerificationSerializer(serializers.ModelSerializer):
+# ===== CHANGE #35 (step 7): verifies the code against PendingRegistration and creates the
+# User on success. Previously it looked up an existing (inactive) User and activated it. =====
+class EmailVerificationSerializer(serializers.Serializer):
     email = serializers.EmailField()
     code = serializers.CharField(max_length=6, min_length=6)
 
-    class Meta:
-        model = EmailVerificationOTP
-        fields = ["email", "code"]
-
     def validate(self, attrs):
-        email = attrs.get('email')
-        code = attrs.get('code')
+        """
+        Check the code for the pending sign-up of this email. A wrong code spends one
+        attempt (see CHANGE #10); at 0 attempts or after expiry a resend is required.
+        """
+        email = User.objects.normalize_email(attrs['email'])
+        pending = PendingRegistration.objects.filter(email__iexact=email).first()
+        if not pending:
+            raise serializers.ValidationError({"email": "No pending registration for this email. Please register first."})
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            raise serializers.ValidationError({"email": "User with this email does not exist."})
-
-        try:
-            otp_record = user.otps.filter(purpose=EmailVerificationOTP.PURPOSE.REGISTRATION, is_used=False).order_by('-created_at').first()
-            if not otp_record:
-                raise serializers.ValidationError({"code": "No active verification code found for this user."})
-        except EmailVerificationOTP.DoesNotExist:
-            raise serializers.ValidationError({"code": "No active verification code found for this user."})
-
-
-        if otp_record.is_expired():
+        if pending.attempts == 0:
             raise serializers.ValidationError({
-                "code" : "Verification code has expired."
+                "code": "Too many incorrect attempts. Please request a new code."
             })
-        
-        # ===== CHANGE #4 (step 1): compare with check_password() against `hashed_code`.
-        # The old line read `otp_record.code`, a field that no longer exists after the
-        # hashing migration -> AttributeError -> HTTP 500 on every verify attempt.
-        # Also dropped `otp_record.is_used()`: `is_used` is a BooleanField, not a method,
-        # so calling it raises TypeError -- and the queryset above already filters
-        # is_used=False, making the check redundant anyway.
-        # check_password() is constant-time, so no separate compare_digest is needed. =====
-        # ===== CHANGE #10 (step 4): a wrong guess now costs one attempt.
-        # Without this the endpoint accepted unlimited guesses against a 6-digit code.
-        # register_failed_attempt() decrements in the DB and burns the record at 0. =====
-        if not check_password(code, otp_record.hashed_code):
-            remaining = otp_record.register_failed_attempt()
+
+        if pending.is_expired():
+            raise serializers.ValidationError({"code": "Verification code has expired."})
+
+        if not check_password(attrs['code'], pending.hashed_code):
+            remaining = pending.register_failed_attempt()
             if remaining == 0:
                 raise serializers.ValidationError({
                     "code": "Too many incorrect attempts. This code is no longer valid, "
@@ -116,16 +103,50 @@ class EmailVerificationSerializer(serializers.ModelSerializer):
                 "code": f"Invalid verification code. {remaining} attempt(s) remaining."
             })
 
-        # ----- OLD CODE (before step 1) -----
-        # if otp_record.code != code:                                    # AttributeError: no 'code' field
-        #     raise serializers.ValidationError({"code": "Invalid verification code."})
-        #
-        # ----- OLD CODE (intermediate version) -----
-        # if not check_password(code, otp_record.hashed_code) or otp_record.is_used():   # TypeError: bool not callable
-        #     raise serializers.ValidationError({"code": "Invalid verification code."})
-        attrs['user'] = user
-        attrs['otp_record'] = otp_record
+        attrs['pending'] = pending
         return attrs
+
+    def save(self):
+        """
+        Create the active User from the pending sign-up. If the email/phone was taken
+        between registration and verification, the insert fails, the transaction rolls
+        back (the pending row is kept) and the client gets a 400 instead of a 500.
+        """
+        pending = self.validated_data['pending']
+        try:
+            with transaction.atomic():
+                return pending.complete()
+        except IntegrityError:
+            raise serializers.ValidationError({
+                "email": "This email or phone number has already been registered."
+            })
+
+
+# ===== CHANGE #36 (step 7): resend only works for a pending sign-up. It used to issue a
+# REGISTRATION code for ANY User, which let deactivated users re-activate themselves. =====
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        """Find the pending sign-up for this email; existing Users are never touched."""
+        value = User.objects.normalize_email(value)
+        pending = PendingRegistration.objects.filter(email__iexact=value).first()
+        if not pending:
+            raise serializers.ValidationError("No pending registration for this email.")
+        self.context['pending'] = pending
+        return value
+
+    def save(self):
+        """Replace the code (old one stops working, attempts reset) and email the new one."""
+        pending = self.context['pending']
+        with transaction.atomic():
+            plain_code = pending.issue_code()
+            transaction.on_commit(lambda: send_verification_email.delay(
+                recipient_email=pending.email,
+                code=plain_code,
+                full_name=pending.full_name,
+            ))
+        return pending
 
 # ===== CHANGE #21 (step 6): profile fields that need no verification.
 # `phone_number` is NOT redeclared, so ModelSerializer keeps the model's

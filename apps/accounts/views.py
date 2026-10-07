@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from .models import User, EmailVerificationOTP
 # CHANGE #24 (step 6): dropped UserUpdateSerializer (removed), added EmailChangeRequestSerializer
-from .serializers import (UserRegistrationSerializer, EmailVerificationSerializer,
+from .serializers import (UserRegistrationSerializer, EmailVerificationSerializer, ResendVerificationSerializer,
                           UserProfileSerializer, EmailChangeRequestSerializer, EmailChangeConfirmSerializer, 
                           ResetPasswordRequestSerializer, ResetPasswordConfirmSerializer)
 # ----- OLD CODE -----
@@ -115,73 +115,28 @@ class VerifyEmailAPIView(GenericAPIView):
     serializer_class = EmailVerificationSerializer
     permission_classes = [AllowAny]
 
-    #@swagger_auto_schema(request_body=EmailVerificationSerializer)
+    # ===== CHANGE #37 (step 7): a correct code now CREATES the user from the pending
+    # sign-up (EmailVerificationSerializer.save). It used to activate an inactive User,
+    # which required storing every unconfirmed sign-up as a User row. =====
     def post(self, request):
+        """Verify {email, code}; on success the account exists and can log in."""
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.validated_data['user']
-            otp_record = serializer.validated_data['otp_record']
-
-            # ===== CHANGE #11 (step 4): activate + burn inside one transaction.
-            # Separate saves could leave a user activated with the code still live
-            # (replayable) if the second write failed. =====
-            with transaction.atomic():
-                # Activate User
-                user.is_active = True
-                user.save(update_fields=["is_active"])
-
-                # ===== CHANGE #12 (step 4): mark_used() instead of delete().
-                # delete() destroyed the audit trail and left `is_used` permanently
-                # unused; the verification query already filters on is_used=False,
-                # so flagging the row is what actually retires the code. =====
-                otp_record.mark_used()
-
-            return Response({"message": "Email verified successfully! Account activated."}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        # ----- OLD CODE (before step 4) -----
-        # user.is_active = True
-        # user.save()
-        #
-        # # Burn used code
-        # otp_record.delete()          # <-- threw away history; is_used was never set
-    # def post(self, request, validated_data=None):
-    #     serializer = EmailVerificationSerializer(data=request.data)
-    #     if serializer.is_valid():
-    #         user = serializer.validated_data['user']
-    #         otp_record = serializer.validated_data['otp_record']
-
-    #         # Activate User
-    #         user.is_active = True
-    #         user.save()
-
-    #         # Burn used code
-    #         otp_record.delete()
-
-    #         return Response({"message": "Email verified successfully! Account activated."}, status=status.HTTP_200_OK)
-    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Email verified successfully! Account created."}, status=status.HTTP_201_CREATED)
 
 
 class ResendVerificationEmailAPIView(GenericAPIView):
-    serializer_class = EmailVerificationSerializer
+    # ===== CHANGE #38 (step 7): only pending sign-ups can get a new code (see CHANGE #36). =====
+    serializer_class = ResendVerificationSerializer
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = request.data.get('email')
-        try:
-            user = User.objects.get(email=email)
-            otp_record, plain_code = EmailVerificationOTP.create_code(user)
-
-            # Send the verification email asynchronously
-            transaction.on_commit(lambda: send_verification_email.delay(
-                recipient_email=user.email,
-                code=plain_code,
-                full_name=user.full_name,
-            ))
-
-            return Response({"message": "Verification email resent successfully."}, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            return Response({"error": "User with this email does not exist."}, status=status.HTTP_400_BAD_REQUEST)
+        """Send a fresh code for a pending sign-up {email}."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Verification email resent successfully."}, status=status.HTTP_200_OK)
 
 class PasswordResetRequestAPIView(GenericAPIView):
     serializer_class = ResetPasswordRequestSerializer
@@ -194,6 +149,12 @@ class PasswordResetRequestAPIView(GenericAPIView):
         serializer.save()
         return Response({"message": "Password reset request initiated. Please check your email for verification code."}, status=status.HTTP_200_OK)
 
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from apps.audit.services import log_action
+
+
 class PasswordResetConfirmAPIView(GenericAPIView):
     serializer_class = ResetPasswordConfirmSerializer
     # AllowAny: a user who forgot their password cannot authenticate.
@@ -204,3 +165,46 @@ class PasswordResetConfirmAPIView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({"message": "Password reset successfully."}, status=status.HTTP_200_OK)
+
+
+class AuditedTokenObtainPairView(TokenObtainPairView):
+    """
+    Issues a JWT pair and records a LOGIN entry in the audit trail.
+    """
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.user
+        log_action(action='login', instance=user, user=user, request=request)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
+class AuditedTokenBlacklistView(TokenBlacklistView):
+    """
+    Blacklists a refresh token (logout) and records a LOGOUT entry in the audit trail.
+    TokenBlacklistView is AllowAny by default, so we resolve the user from the refresh
+    token payload if request.user is anonymous.
+    """
+    def post(self, request, *args, **kwargs):
+        user = request.user if getattr(request, 'user', None) and request.user.is_authenticated else None
+        if user is None:
+            raw_refresh = request.data.get('refresh')
+            if raw_refresh:
+                try:
+                    token = RefreshToken(raw_refresh)
+                    user_id = token.payload.get('user_id')
+                    if user_id:
+                        user = User.objects.filter(pk=user_id).first()
+                except TokenError:
+                    pass
+
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK:
+            log_action(
+                action='logout',
+                instance=user,
+                model_name='accounts.User',
+                user=user,
+                request=request,
+            )
+        return response
