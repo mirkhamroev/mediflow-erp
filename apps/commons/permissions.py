@@ -73,3 +73,16 @@ class RoleBasedPermission(BasePermission):
 
     def has_permission(self, request, view):
         return _has_role(request, *self.roles)
+
+class CanViewAuditLog(BasePermission):
+    """
+    Audit log access: hospital admins (role "admin"), superusers, or any user explicitly
+    granted the audit.view_auditlog permission (e.g. a compliance officer via a group).
+    """
+    message = "You do not have permission to view the audit log."
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated and user.is_active):
+            return False
+        return user.role == "admin" or user.has_perm('audit.view_auditlog')

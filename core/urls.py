@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from apps.accounts.urls import urlpatterns as accounts_urls
 from apps.organizations.urls import urlpatterns as organizations_urls
+from apps.audit.urls import urlpatterns as audit_urls
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -45,5 +46,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/accounts/', include(accounts_urls)),
     path('api/organizations/', include(organizations_urls)),
+    path('api/audit/', include(audit_urls)),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

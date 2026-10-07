@@ -203,6 +203,10 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 # counts down; at 0 the code is burned (is_used=True).
 OTP_MAX_ATTEMPTS = 5
 
+# ===== CHANGE #33 (step 7): unconfirmed sign-ups (PendingRegistration) older than this
+# are deleted by `manage.py purge_pending_registrations` (run it from cron).
+PENDING_REGISTRATION_TTL_HOURS = 24
+
 # ===== CHANGE #13 (step 5): brand name used in email subjects and templates.
 SITE_NAME = 'MediFlow ERP'
 
