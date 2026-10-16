@@ -1,10 +1,13 @@
 from django.contrib import admin
-from .models import User, EmailVerificationOTP, PendingRegistration
+from .models import User, EmailVerificationOTP, PendingRegistration, Permission, Role, UserRole
 
 # Register your models here.
 
 admin.site.register(User)
 admin.site.register(EmailVerificationOTP)
+admin.site.register(Permission)
+admin.site.register(Role)
+admin.site.register(UserRole)
 
 
 @admin.register(PendingRegistration)
@@ -13,3 +16,4 @@ class PendingRegistrationAdmin(admin.ModelAdmin):
     list_display = ('email', 'phone_number', 'full_name', 'created_at', 'expires_at', 'attempts')
     search_fields = ('email', 'phone_number', 'full_name')
     exclude = ('password', 'hashed_code')
+

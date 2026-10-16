@@ -1,25 +1,22 @@
-from django.shortcuts import render
-from .models import Organization, Hospital, Department
-from .serializers import OrganizationSerializer, HospitalSerializer, DepartmentSerializer
+from .models import Organization, Hospital, Department, StaffProfile, DoctorProfile, NurseProfile
+from .serializers import (
+    OrganizationSerializer, HospitalSerializer, DepartmentSerializer,
+    StaffProfileSerializer, DoctorProfileSerializer, NurseProfileSerializer,
+)
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from apps.commons.mixins import AuditRetrieveMixin
-from apps.commons.permissions import IsOwner
-from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+from apps.commons.permissions import IsHospitalAdmin
 
 
-# Create your views here.
 class HospitalViewSet(AuditRetrieveMixin, viewsets.ModelViewSet):
     queryset = Hospital.objects.prefetch_related('departments').all()
     serializer_class = HospitalSerializer
 
     def get_permissions(self):
-        # You can customize permissions here if needed
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]  # Only authenticated users can modify hospitals
-        return [AllowAny()]  # Anyone can view hospitals
-
+            return [IsHospitalAdmin()]
+        return [AllowAny()]
 
 
 class DepartmentViewSet(AuditRetrieveMixin, viewsets.ModelViewSet):
@@ -27,10 +24,9 @@ class DepartmentViewSet(AuditRetrieveMixin, viewsets.ModelViewSet):
     serializer_class = DepartmentSerializer
 
     def get_permissions(self):
-        # You can customize permissions here if needed
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]  # Only authenticated users can modify departments
-        return [AllowAny()]  # Anyone can view departments
+            return [IsHospitalAdmin()]
+        return [AllowAny()]
 
 
 class OrganizationViewSet(AuditRetrieveMixin, viewsets.ModelViewSet):
@@ -39,9 +35,45 @@ class OrganizationViewSet(AuditRetrieveMixin, viewsets.ModelViewSet):
     pagination_class = None  # Disable pagination for this viewset
 
     def get_permissions(self):
-        # You can customize permissions here if needed
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]  # Only authenticated users can modify organizations
-        return [AllowAny()]  # Anyone can view organizations
+            return [IsHospitalAdmin()]
+        return [AllowAny()]
+
+
+class StaffProfileViewSet(AuditRetrieveMixin, viewsets.ModelViewSet):
+    queryset = StaffProfile.objects.select_related('user', 'organization', 'hospital', 'department').all()
+    serializer_class = StaffProfileSerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsHospitalAdmin()]
+        return [IsAuthenticated()]
+
+
+class DoctorProfileViewSet(AuditRetrieveMixin, viewsets.ModelViewSet):
+    queryset = DoctorProfile.objects.select_related(
+        'staff_profile__user', 'staff_profile__organization',
+        'staff_profile__hospital', 'staff_profile__department',
+    ).all()
+    serializer_class = DoctorProfileSerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsHospitalAdmin()]
+        return [IsAuthenticated()]
+
+
+class NurseProfileViewSet(AuditRetrieveMixin, viewsets.ModelViewSet):
+    queryset = NurseProfile.objects.select_related(
+        'staff_profile__user', 'staff_profile__organization',
+        'staff_profile__hospital', 'staff_profile__department',
+    ).all()
+    serializer_class = NurseProfileSerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsHospitalAdmin()]
+        return [IsAuthenticated()]
+
 
 

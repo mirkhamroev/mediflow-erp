@@ -23,6 +23,7 @@ import random, secrets
 class User(AuditableModelMixin, AbstractUser):
     audit_exclude_fields = ('updated_at', 'last_login')
     class Role(models.TextChoices):
+        SUPER_ADMIN = "super_admin", "Super Administrator"
         ACCOUNTANT = "accountant", "Accountant"
         ADMIN = "admin", "Admin"
         USER = "user", "User"
@@ -31,6 +32,7 @@ class User(AuditableModelMixin, AbstractUser):
         PHARMACIST = "pharmacist", "Pharmacist"
         NURSE = "nurse", "Nurse"
         RECEPTIONIST = "receptionist", "Receptionist"
+        INSURANCE_MANAGER = "insurance_manager", "Insurance Manager"
 
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.USER)
     id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
@@ -59,7 +61,7 @@ class User(AuditableModelMixin, AbstractUser):
 
     @property
     def is_admin(self):
-        return self.role == self.Role.ADMIN
+        return self.role in (self.Role.ADMIN, self.Role.SUPER_ADMIN) or self.is_superuser
 
     @property
     def is_accountant(self):
@@ -86,8 +88,45 @@ class User(AuditableModelMixin, AbstractUser):
         return self.role == self.Role.RECEPTIONIST
 
     @property
+    def is_insurance_manager(self):
+        return self.role == self.Role.INSURANCE_MANAGER
+
+    @property
     def is_user(self):
         return self.role == self.Role.USER
+
+    def has_role(self, *role_codes):
+        """
+        True if the user's primary `role` field OR any active `UserRole` assignment
+        matches one of `role_codes`. Superusers and super_admins match administrative checks.
+        """
+        if not self.is_active:
+            return False
+        if self.role in role_codes:
+            return True
+        return self.user_roles.filter(
+            is_active=True,
+            role__is_active=True,
+            role__code__in=role_codes,
+        ).exists()
+
+    def has_rbac_perm(self, *perm_codes):
+        """
+        True if the user is a superuser/super_admin, or holds any of `perm_codes`
+        (e.g. 'clinical.create_prescription', 'inventory.dispense') via an assigned
+        `UserRole` or via the `Role` matching their primary `user.role` code.
+        """
+        if not self.is_active:
+            return False
+        if self.is_superuser or self.role == self.Role.SUPER_ADMIN:
+            return True
+        from django.db.models import Q
+        return Role.objects.filter(
+            Q(user_roles__user=self, user_roles__is_active=True) | Q(code=self.role),
+            is_active=True,
+            permissions__code__in=perm_codes,
+        ).exists()
+
 
 
 class EmailVerificationOTP(models.Model):
@@ -291,3 +330,83 @@ class PendingRegistration(models.Model):
         user.save()
         self.delete()
         return user
+
+
+# ============================================================
+# Phase 2.2 --- RBAC Models (Role, Permission, UserRole)
+# ============================================================
+
+class Permission(AuditableModelMixin, models.Model):
+    """
+    Fine-grained domain permission (e.g. 'clinical.read', 'inventory.dispense').
+    Named `Permission` per Phase 2.2 specification, with a distinct `db_table` and
+    related names so it never clashes with `django.contrib.auth.models.Permission`.
+    """
+    id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    code = models.CharField(max_length=100, unique=True, db_index=True)
+    name = models.CharField(max_length=255)
+    module = models.CharField(max_length=50, db_index=True)
+    description = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "RBAC Permission"
+        verbose_name_plural = "RBAC Permissions"
+        ordering = ["module", "code"]
+
+    def __str__(self):
+        return f"{self.code} ({self.name})"
+
+
+class Role(AuditableModelMixin, models.Model):
+    """
+    Named role grouping a set of `Permission` objects (e.g. 'doctor', 'pharmacist').
+    """
+    id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    code = models.CharField(max_length=50, unique=True, db_index=True)
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(null=True, blank=True)
+    permissions = models.ManyToManyField(Permission, related_name="roles", blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Role"
+        verbose_name_plural = "Roles"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class UserRole(AuditableModelMixin, models.Model):
+    """
+    Explicit assignment of a `Role` to a `User`.
+    """
+    id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="user_roles")
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name="user_roles")
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_user_roles",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "User Role"
+        verbose_name_plural = "User Roles"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "role"], name="unique_user_role_assignment"),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} -> {self.role.code}"
+
