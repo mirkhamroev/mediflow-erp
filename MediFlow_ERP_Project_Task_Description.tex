@@ -1,0 +1,2415 @@
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+\definecolor{darkblue}{RGB}{25,55,95}
+\definecolor{lightgray}{RGB}{245,245,245}
+\definecolor{codegray}{RGB}{90,90,90}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=darkblue,
+    urlcolor=darkblue,
+    pdftitle={MediFlow ERP - Complete Project Task Description},
+    pdfauthor={MediFlow ERP Project}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{MediFlow ERP}
+\rhead{Project Task Description}
+\cfoot{\thepage}
+
+\titleformat{\section}{\Large\bfseries\color{darkblue}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{darkblue}}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.6em}{}
+
+\setlist[itemize]{leftmargin=*, itemsep=2pt, topsep=3pt}
+\setlist[enumerate]{leftmargin=*, itemsep=3pt, topsep=3pt}
+
+\lstset{
+    backgroundcolor=\color{lightgray},
+    basicstyle=\ttfamily\small,
+    frame=single,
+    breaklines=true,
+    columns=fullflexible
+}
+
+\newcommand{\task}[1]{\item[$\square$] #1}
+\newcommand{\important}[1]{\textbf{Important:} #1}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    {\Huge\bfseries MediFlow ERP\par}
+    \vspace{0.5cm}
+    {\LARGE Complete Project Task Description\par}
+    \vspace{1.5cm}
+    {\large Enterprise Healthcare ERP for Private Hospitals and Clinics\par}
+    \vfill
+
+    \begin{minipage}{0.9\textwidth}
+    \textbf{Project objective.}
+    MediFlow is an enterprise-grade ERP designed to unify clinical,
+    logistical, scheduling, and financial operations for private hospital
+    networks and clinics. It acts as a single source of truth across
+    patient care, pharmacy and supply chain, scheduling, billing,
+    insurance, and accounting.
+    \end{minipage}
+
+    \vfill
+    {\large Development Roadmap and Implementation Checklist\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Project Overview}
+
+MediFlow addresses a common healthcare operational problem: data is often
+siloed between reception, clinical staff, pharmacy, inventory, billing,
+insurance, and accounting. This can cause delays, inconsistent information,
+stock allocation errors, financial leakage, and weak accountability.
+
+The system must unify these domains while maintaining strict access control,
+transactional consistency, detailed auditability, and strong protection of
+sensitive patient and financial information.
+
+\subsection{Primary Business Domains}
+
+The four core business domains are:
+
+\begin{enumerate}
+    \item \textbf{Patient Care and Admissions} --- \texttt{apps.clinical}
+    \item \textbf{Pharmacy and Supply Chain} --- \texttt{apps.inventory}
+    \item \textbf{Rostering and Resource Allocation} --- \texttt{apps.scheduling}
+    \item \textbf{Billing and Insurance Ledger} --- \texttt{apps.finance}
+\end{enumerate}
+
+Supporting applications should also be introduced:
+
+\begin{itemize}
+    \item \texttt{apps.accounts} --- authentication, users, roles, permissions
+    \item \texttt{apps.organizations} --- organizations, hospitals, departments
+    \item \texttt{apps.audit} --- immutable audit history
+    \item \texttt{apps.notifications} --- notifications and background workflows
+    \item \texttt{apps.core} --- shared infrastructure and common functionality
+\end{itemize}
+
+\subsection{Core Cross-Module Workflow}
+
+The principal ERP workflow is:
+
+\begin{lstlisting}
+Patient Checks In
+        |
+        v
+Doctor Consultation
+        |
+        v
+Doctor Prescribes Medication
+        |
+        v
+Inventory Batch Selection
+        |
+        v
+Database Concurrency Lock
+        |
+        v
+Stock Reservation / Deduction
+        |
+        v
+Medication Dispensed
+        |
+        v
+Invoice Item Generated
+        |
+        v
+Accounting Ledger Updated
+        |
+        v
+Audit Log Created
+\end{lstlisting}
+
+A critical requirement is that related operations are performed atomically
+where business consistency requires it.
+
+% ============================================================
+\section{Phase 0 --- Project Definition and Architecture}
+
+\subsection{0.1 Define Project Scope}
+
+\task{Define the MVP scope.}
+\task{Define features planned for post-MVP releases.}
+\task{Define the hospital and clinic organizational structure.}
+\task{Define supported user types.}
+\task{Define the permissions of every user type.}
+\task{Define which modules each role can access.}
+\task{Document all major business workflows.}
+\task{Identify regulatory, privacy, accounting, and operational requirements.}
+
+\subsection{0.2 Define User Types}
+
+At minimum, define:
+
+\begin{itemize}
+    \item Super Administrator
+    \item Hospital Administrator
+    \item Doctor
+    \item Nurse
+    \item Receptionist
+    \item Pharmacist
+    \item Accountant
+    \item Insurance Manager
+\end{itemize}
+
+The exact role hierarchy should be documented before implementation.
+
+\subsection{0.3 Define Core Domain Entities}
+
+Create the initial domain map:
+
+\begin{lstlisting}
+Organization
+  |
+  +-- Hospital
+  |     +-- Department
+  |     +-- Ward
+  |     +-- Room
+  |     +-- Operating Room
+  |
+  +-- Users
+  +-- Patients
+  +-- Appointments
+  +-- Admissions
+  +-- Prescriptions
+  +-- Inventory
+  +-- Finance
+\end{lstlisting}
+
+\subsection{0.4 Define Application Boundaries}
+
+The initial Django structure should be:
+
+\begin{lstlisting}
+apps/
+    accounts/
+    organizations/
+    clinical/
+    inventory/
+    scheduling/
+    finance/
+    audit/
+    notifications/
+    core/
+\end{lstlisting}
+
+Define which model and business responsibility belongs to each app.
+Avoid creating circular dependencies between applications.
+
+\subsection{0.5 Define Cross-Module Dependencies}
+
+Document the dependency direction:
+
+\begin{lstlisting}
+accounts
+    |
+    v
+organizations
+    |
+    +----> scheduling
+    |
+    +----> clinical
+                |
+                v
+            inventory
+                |
+                v
+             finance
+                |
+                v
+              audit
+\end{lstlisting}
+
+\subsection{0.6 Define API Architecture}
+
+\task{Define REST API conventions.}
+\task{Define API versioning.}
+\task{Define authentication strategy.}
+\task{Define pagination conventions.}
+\task{Define filtering conventions.}
+\task{Define searching conventions.}
+\task{Define ordering conventions.}
+\task{Define standard error responses.}
+\task{Define serializer validation strategy.}
+\task{Define OpenAPI documentation strategy.}
+
+% ============================================================
+\section{Phase 1 --- Infrastructure and Django Foundation}
+
+\subsection{1.1 Repository}
+
+\task{Create the Git repository.}
+\task{Create a production-safe \texttt{.gitignore}.}
+\task{Create \texttt{.env.example}.}
+\task{Create the project README.}
+\task{Document local development instructions.}
+\task{Establish a branching strategy.}
+
+Recommended branches:
+
+\begin{lstlisting}
+main
+develop
+feature/*
+bugfix/*
+\end{lstlisting}
+
+\subsection{1.2 Django Project}
+
+\task{Create the Django project.}
+\task{Configure Django settings.}
+\task{Separate base, development, production, and testing settings.}
+\task{Configure installed applications.}
+\task{Configure middleware.}
+\task{Configure templates and static files.}
+\task{Configure media files.}
+\task{Configure timezone.}
+\task{Configure internationalization where required.}
+
+\subsection{1.3 Core Dependencies}
+
+Evaluate and install the required packages, including:
+
+\begin{lstlisting}
+Django
+Django REST Framework
+django-filter
+psycopg
+drf-spectacular
+django-simple-history
+Celery
+Redis
+pytest
+pytest-django
+factory-boy
+\end{lstlisting}
+
+Potential supporting packages:
+
+\begin{lstlisting}
+django-cors-headers
+django-health-check
+gunicorn
+\end{lstlisting}
+
+Every dependency must have a documented reason for inclusion.
+
+\subsection{1.4 PostgreSQL}
+
+\task{Configure PostgreSQL.}
+\task{Create the development database.}
+\task{Configure Django's database connection.}
+\task{Configure connection pooling if required.}
+\task{Verify transaction behavior.}
+\task{Run initial migrations.}
+\task{Verify rollback behavior.}
+
+\subsection{1.5 Docker Development Environment}
+
+Create a development environment containing:
+
+\begin{lstlisting}
+Django
+PostgreSQL
+Redis
+Celery Worker
+Celery Beat
+Optional Mailpit / development mail server
+\end{lstlisting}
+
+The target is:
+
+\begin{lstlisting}
+docker compose up
+\end{lstlisting}
+
+to start the complete local development environment.
+
+% ============================================================
+\section{Phase 2 --- Organization and User Management}
+
+This phase must be completed before most clinical, inventory, and finance
+functionality because these domains depend on users, roles, and
+organizational context.
+
+\subsection{2.1 Custom User}
+
+Create the custom \texttt{User} model with appropriate fields, for example:
+
+\begin{lstlisting}
+id
+email
+password
+first_name
+last_name
+phone
+is_active
+is_staff
+created_at
+updated_at
+\end{lstlisting}
+
+\task{Use the custom user model from the beginning of the project.}
+\task{Make email uniqueness behavior explicit.}
+\task{Implement secure password hashing.}
+\task{Implement account activation/deactivation.}
+
+\subsection{2.2 RBAC Models}
+
+Create:
+
+\begin{lstlisting}
+Role
+Permission
+UserRole
+\end{lstlisting}
+
+Define permissions such as:
+
+\begin{lstlisting}
+clinical.read
+clinical.create_prescription
+clinical.update_prescription
+patient.read
+inventory.read
+inventory.receive
+inventory.dispense
+finance.read
+finance.create_invoice
+finance.process_payment
+\end{lstlisting}
+
+\subsection{2.3 Organizations}
+
+Create:
+
+\begin{lstlisting}
+Organization
+Hospital
+Department
+\end{lstlisting}
+
+Relationships:
+
+\begin{lstlisting}
+Organization
+    |
+    v
+Hospital
+    |
+    v
+Department
+\end{lstlisting}
+
+\subsection{2.4 Staff Assignment}
+
+Create:
+
+\begin{lstlisting}
+StaffProfile
+DoctorProfile
+NurseProfile
+\end{lstlisting}
+
+\task{Associate staff with organizations.}
+\task{Associate staff with hospitals.}
+\task{Associate staff with departments.}
+\task{Define employment/active status.}
+
+\subsection{2.5 Authentication}
+
+Implement:
+
+\task{Login.}
+\task{Logout.}
+\task{JWT or another explicitly selected authentication mechanism.}
+\task{Access-token expiration.}
+\task{Refresh tokens if JWT is selected.}
+\task{Password reset.}
+\task{Email verification.}
+\task{Account activation and deactivation.}
+
+\subsection{2.6 DRF Permission System}
+
+Implement reusable permission classes such as:
+
+\begin{lstlisting}
+IsDoctor
+IsPharmacist
+IsAccountant
+IsHospitalAdmin
+\end{lstlisting}
+
+Also implement object-level and organization-level authorization.
+
+% ============================================================
+\section{Phase 3 --- Audit System}
+
+The audit system should be implemented before sensitive clinical and
+financial workflows.
+
+\subsection{3.1 Audit Model}
+
+Create:
+
+\begin{lstlisting}
+AuditLog
+\end{lstlisting}
+
+Track:
+
+\begin{lstlisting}
+user
+action
+model
+object_id
+timestamp
+IP address
+user agent
+old_values
+new_values
+\end{lstlisting}
+
+\subsection{3.2 Audit Events}
+
+Support at least:
+
+\begin{lstlisting}
+CREATE
+UPDATE
+DELETE
+VIEW
+LOGIN
+LOGOUT
+PRESCRIBE
+DISPENSE
+PAYMENT
+CLAIM
+\end{lstlisting}
+
+\subsection{3.3 Immutable Audit Trail}
+
+\task{Prevent ordinary users from editing audit records.}
+\task{Prevent ordinary users from deleting audit records.}
+\task{Restrict audit-log access to authorized roles.}
+\task{Record the acting user.}
+\task{Record timestamps.}
+\task{Record affected objects.}
+\task{Record old values.}
+\task{Record new values.}
+\task{Document retention and archival strategy.}
+
+Use \texttt{django-simple-history}, custom audit infrastructure, or another
+documented approach. Database-level protections/triggers may be considered
+for stronger immutability requirements.
+
+\subsection{3.4 Audit Tests}
+
+Verify:
+
+\begin{lstlisting}
+Doctor changes prescription
+        |
+        v
+AuditLog
+        |
+        +-- Who?
+        +-- When?
+        +-- What changed?
+        +-- Old value?
+        +-- New value?
+\end{lstlisting}
+
+% ============================================================
+\section{Phase 4 --- Patient Management}
+
+Implement inside \texttt{apps.clinical}.
+
+\subsection{4.1 Patient Model}
+
+Create \texttt{Patient}.
+
+Potential fields:
+
+\begin{lstlisting}
+medical_record_number
+first_name
+last_name
+date_of_birth
+sex
+phone
+email
+address
+emergency_contact
+blood_type
+status
+created_at
+updated_at
+\end{lstlisting}
+
+\subsection{4.2 Patient Identification}
+
+\task{Generate a unique Medical Record Number (MRN).}
+\task{Search by MRN.}
+\task{Search by name.}
+\task{Search by phone number.}
+\task{Implement duplicate-patient detection.}
+\task{Document patient identity matching rules.}
+
+\subsection{4.3 Patient Demographics}
+
+Implement:
+
+\task{Personal information.}
+\task{Contact information.}
+\task{Emergency contact.}
+\task{Allergies.}
+\task{Medical history.}
+
+\subsection{4.4 Patient Privacy}
+
+Explicitly define which patient fields are visible to:
+
+\begin{itemize}
+    \item Doctor
+    \item Nurse
+    \item Receptionist
+    \item Pharmacist
+    \item Accountant
+    \item Administrator
+\end{itemize}
+
+Implement queryset-level and field-level access controls where necessary.
+
+% ============================================================
+\section{Phase 5 --- Scheduling}
+
+Implement \texttt{apps.scheduling}.
+
+\subsection{5.1 Doctor Availability}
+
+Create:
+
+\begin{lstlisting}
+DoctorSchedule
+WorkingHours
+TimeOff
+\end{lstlisting}
+
+\task{Define working hours.}
+\task{Define recurring schedules if required.}
+\task{Define leave/time-off.}
+\task{Define exceptional working days.}
+
+\subsection{5.2 Appointment}
+
+Create:
+
+\begin{lstlisting}
+Appointment
+\end{lstlisting}
+
+Fields should include:
+
+\begin{lstlisting}
+patient
+doctor
+department
+start_time
+end_time
+status
+reason
+notes
+\end{lstlisting}
+
+Statuses:
+
+\begin{lstlisting}
+SCHEDULED
+CONFIRMED
+CHECKED_IN
+IN_PROGRESS
+COMPLETED
+CANCELLED
+NO_SHOW
+\end{lstlisting}
+
+\subsection{5.3 Appointment Operations}
+
+\task{Create appointment.}
+\task{Reschedule appointment.}
+\task{Cancel appointment.}
+\task{Confirm appointment.}
+\task{Check patient in.}
+\task{Mark appointment as in progress.}
+\task{Complete appointment.}
+\task{Record no-show.}
+
+\subsection{5.4 Appointment Conflict Prevention}
+
+Prevent:
+
+\begin{lstlisting}
+Doctor
+    +-- 10:00 Patient A
+    +-- 10:00 Patient B  <-- invalid
+\end{lstlisting}
+
+Use database constraints and/or transactional service logic.
+
+\subsection{5.5 Operating Rooms}
+
+Create:
+
+\begin{lstlisting}
+OperatingRoom
+OperatingRoomSchedule
+\end{lstlisting}
+
+\task{Create operating rooms.}
+\task{Track availability.}
+\task{Reserve rooms.}
+\task{Prevent overlapping reservations.}
+\task{Support cancellation and rescheduling.}
+
+% ============================================================
+\section{Phase 6 --- Patient Check-In and Admissions}
+
+\subsection{6.1 Check-In Workflow}
+
+Implement:
+
+\begin{lstlisting}
+Appointment
+    |
+    v
+Patient arrives
+    |
+    v
+Check-in
+    |
+    v
+Waiting
+    |
+    v
+Doctor consultation
+\end{lstlisting}
+
+\subsection{6.2 Admission}
+
+Create:
+
+\begin{lstlisting}
+Admission
+Ward
+Room
+Bed
+\end{lstlisting}
+
+Relationship:
+
+\begin{lstlisting}
+Patient
+    |
+    v
+Admission
+    |
+    v
+Ward
+    |
+    v
+Room
+    |
+    v
+Bed
+\end{lstlisting}
+
+\subsection{6.3 Bed Management}
+
+Support statuses:
+
+\begin{lstlisting}
+AVAILABLE
+OCCUPIED
+RESERVED
+MAINTENANCE
+\end{lstlisting}
+
+\task{Assign bed.}
+\task{Release bed.}
+\task{Transfer patient.}
+\task{Prevent double assignment.}
+\task{Track bed history.}
+
+\subsection{6.4 Discharge}
+
+Implement:
+
+\begin{lstlisting}
+Admission
+    |
+    v
+Discharge
+    |
+    +-- Final clinical summary
+    |
+    +-- Final billing
+\end{lstlisting}
+
+% ============================================================
+\section{Phase 7 --- EHR and Clinical Records}
+
+\subsection{7.1 Encounter}
+
+Create:
+
+\begin{lstlisting}
+Encounter
+\end{lstlisting}
+
+An encounter represents a clinical interaction between a patient and
+clinical staff.
+
+\begin{lstlisting}
+Patient
+    |
+    v
+Encounter
+    |
+    v
+Doctor
+\end{lstlisting}
+
+\subsection{7.2 Clinical Notes}
+
+Create:
+
+\begin{lstlisting}
+ClinicalNote
+\end{lstlisting}
+
+Support:
+
+\begin{itemize}
+    \item Chief complaint
+    \item History
+    \item Examination
+    \item Assessment
+    \item Plan
+\end{itemize}
+
+\subsection{7.3 Diagnosis}
+
+Create:
+
+\begin{lstlisting}
+Diagnosis
+\end{lstlisting}
+
+Design the model so that a standardized diagnosis coding system such as
+ICD-10 can be added or integrated later.
+
+\subsection{7.4 Vitals}
+
+Create:
+
+\begin{lstlisting}
+VitalSign
+\end{lstlisting}
+
+Track:
+
+\begin{lstlisting}
+temperature
+heart_rate
+blood_pressure
+respiratory_rate
+oxygen_saturation
+weight
+height
+\end{lstlisting}
+
+\task{Record who measured the vital sign.}
+\task{Record measurement time.}
+\task{Maintain historical measurements.}
+
+\subsection{7.5 Medical History}
+
+Support:
+
+\task{Chronic conditions.}
+\task{Previous surgeries.}
+\task{Allergies.}
+\task{Previous admissions.}
+\task{Family history.}
+\task{Other clinically relevant history.}
+
+% ============================================================
+\section{Phase 8 --- Medication Catalog and Prescriptions}
+
+\subsection{8.1 Medication Catalog}
+
+Create:
+
+\begin{lstlisting}
+Medication
+MedicationForm
+DosageUnit
+\end{lstlisting}
+
+Support different forms, for example:
+
+\begin{lstlisting}
+Tablet
+Syrup
+Injection
+Capsule
+Drops
+Cream
+Spray
+Solution
+Powder
+Suppository
+\end{lstlisting}
+
+\subsection{8.2 Prescription}
+
+Create:
+
+\begin{lstlisting}
+Prescription
+PrescriptionItem
+\end{lstlisting}
+
+Structure:
+
+\begin{lstlisting}
+Prescription
+    |
+    +-- Patient
+    +-- Doctor
+    +-- Encounter
+    |
+    +-- Items
+          +-- Medication
+          +-- Dose
+          +-- Frequency
+          +-- Duration
+          +-- Quantity
+\end{lstlisting}
+
+\subsection{8.3 Prescription Lifecycle}
+
+Implement:
+
+\begin{lstlisting}
+DRAFT
+  |
+  v
+ISSUED
+  |
+  v
+DISPENSING
+  |
+  v
+DISPENSED
+\end{lstlisting}
+
+Also support:
+
+\begin{lstlisting}
+CANCELLED
+EXPIRED
+\end{lstlisting}
+
+\subsection{8.4 Prescription Auditing}
+
+\task{Audit creation.}
+\task{Audit modification.}
+\task{Audit cancellation.}
+\task{Record the responsible doctor/user.}
+\task{Protect finalized prescription records from unauthorized modification.}
+
+% ============================================================
+\section{Phase 9 --- Inventory and Pharmacy}
+
+Implement \texttt{apps.inventory}.
+
+\subsection{9.1 Product Catalog}
+
+Create:
+
+\begin{lstlisting}
+Product
+ProductCategory
+Manufacturer
+Supplier
+\end{lstlisting}
+
+Support both medication and medical supplies.
+
+\subsection{9.2 Batch Tracking}
+
+Create:
+
+\begin{lstlisting}
+InventoryBatch
+\end{lstlisting}
+
+Track:
+
+\begin{lstlisting}
+product
+batch_number
+manufacture_date
+expiration_date
+purchase_price
+selling_price
+quantity
+\end{lstlisting}
+
+Also consider:
+
+\begin{lstlisting}
+warehouse
+storage_location
+unit_of_measure
+received_at
+status
+\end{lstlisting}
+
+\subsection{9.3 Warehouse and Storage}
+
+Create:
+
+\begin{lstlisting}
+Warehouse
+StorageLocation
+\end{lstlisting}
+
+\task{Create warehouses.}
+\task{Create storage locations.}
+\task{Transfer stock between locations.}
+\task{Track current stock by location.}
+
+\subsection{9.4 Stock Ledger}
+
+Do not rely only on a mutable quantity field.
+
+Create:
+
+\begin{lstlisting}
+StockMovement
+\end{lstlisting}
+
+Movement types:
+
+\begin{lstlisting}
+RECEIPT
+TRANSFER
+ADJUSTMENT
+RESERVATION
+DISPENSING
+RETURN
+EXPIRATION
+\end{lstlisting}
+
+Every stock change should have a traceable movement record.
+
+% ============================================================
+\section{Phase 10 --- Inventory Concurrency and Race Conditions}
+
+This is a critical technical requirement.
+
+\subsection{10.1 Transactional Allocation}
+
+Use Django transactions:
+
+\begin{lstlisting}
+transaction.atomic()
+\end{lstlisting}
+
+and row-level database locking:
+
+\begin{lstlisting}
+select_for_update()
+\end{lstlisting}
+
+Conceptual workflow:
+
+\begin{lstlisting}
+Prescription
+    |
+    v
+Find eligible batch
+    |
+    v
+BEGIN TRANSACTION
+    |
+    v
+SELECT ... FOR UPDATE
+    |
+    v
+Check quantity
+    |
+    v
+Reserve / deduct quantity
+    |
+    v
+Create StockMovement
+    |
+    v
+COMMIT
+\end{lstlisting}
+
+\subsection{10.2 Race-Condition Test}
+
+Simulate:
+
+\begin{lstlisting}
+Doctor A ----\
+              >---- Last available vial
+Doctor B ----/
+\end{lstlisting}
+
+Expected behavior:
+
+\begin{lstlisting}
+One request succeeds.
+The other request waits for the transaction and then
+fails safely because the stock is no longer available.
+\end{lstlisting}
+
+The implementation must not permit negative or double-allocated stock.
+
+\subsection{10.3 Expiration Handling}
+
+Implement:
+
+\task{FEFO (First Expire, First Out).}
+\task{Expired batch detection.}
+\task{Blocking expired stock from dispensing.}
+\task{Near-expiration warnings.}
+\task{Expiration stock movements.}
+
+\subsection{10.4 Temperature-Sensitive Inventory}
+
+Support:
+
+\begin{lstlisting}
+TemperatureControlled
+StorageCondition
+TemperatureLog
+\end{lstlisting}
+
+Example storage range:
+
+\begin{lstlisting}
+2 C -- 8 C
+\end{lstlisting}
+
+\task{Record temperature measurements.}
+\task{Detect out-of-range values.}
+\task{Generate alerts where required.}
+\task{Track affected stock if a cold-chain violation occurs.}
+
+% ============================================================
+\section{Phase 11 --- Prescription to Pharmacy Integration}
+
+Connect clinical and inventory.
+
+Workflow:
+
+\begin{lstlisting}
+Doctor
+    |
+    v
+Prescription
+    |
+    v
+Pharmacy
+    |
+    v
+Batch selection
+    |
+    v
+Stock reservation
+    |
+    v
+Dispensing
+    |
+    v
+Stock movement
+\end{lstlisting}
+
+Tasks:
+
+\task{Allow pharmacists to view eligible prescriptions.}
+\task{Find available inventory batches.}
+\task{Apply FEFO selection.}
+\task{Reserve stock.}
+\task{Dispense medication.}
+\task{Create stock movement records.}
+\task{Update prescription status.}
+\task{Audit the dispensing event.}
+
+% ============================================================
+\section{Phase 12 --- Finance and Billing}
+
+Implement \texttt{apps.finance}.
+
+\subsection{12.1 Price Catalog}
+
+Create:
+
+\begin{lstlisting}
+Service
+ServicePrice
+MedicationPrice
+\end{lstlisting}
+
+Support services such as:
+
+\begin{lstlisting}
+Consultation
+MRI
+Blood Test
+Medication
+Hospital Bed
+Surgery
+\end{lstlisting}
+
+\task{Support price changes over time.}
+\task{Preserve the price actually used on historical invoices.}
+
+\subsection{12.2 Patient Billing Folio}
+
+Create:
+
+\begin{lstlisting}
+PatientFolio
+\end{lstlisting}
+
+The folio represents the patient's active financial account for a
+clinical encounter or admission.
+
+\subsection{12.3 Invoice}
+
+Create:
+
+\begin{lstlisting}
+Invoice
+InvoiceItem
+\end{lstlisting}
+
+Example:
+
+\begin{lstlisting}
+Invoice
+    +-- Consultation     $50
+    +-- Medication       $20
+    +-- Lab test         $30
+    +-- Room             $100
+\end{lstlisting}
+
+Implement:
+
+\task{Invoice creation.}
+\task{Invoice itemization.}
+\task{Tax/discount rules if required.}
+\task{Invoice status.}
+\task{Invoice finalization.}
+\task{Invoice cancellation rules.}
+\task{Invoice audit trail.}
+
+% ============================================================
+\section{Phase 13 --- Clinical to Finance Integration}
+
+Implement automatic billing triggers.
+
+Consultation:
+
+\begin{lstlisting}
+Patient
+    |
+    v
+Consultation
+    |
+    v
+InvoiceItem
+\end{lstlisting}
+
+Medication:
+
+\begin{lstlisting}
+Prescription
+    |
+    v
+Dispensing
+    |
+    v
+InvoiceItem
+\end{lstlisting}
+
+The system must ensure that a successful dispensing operation creates the
+appropriate financial transaction without creating duplicate charges.
+
+Define idempotency rules for retryable operations.
+
+% ============================================================
+\section{Phase 14 --- Insurance}
+
+\subsection{14.1 Insurance Providers}
+
+Create:
+
+\begin{lstlisting}
+InsuranceProvider
+InsurancePlan
+\end{lstlisting}
+
+\subsection{14.2 Patient Insurance}
+
+Create:
+
+\begin{lstlisting}
+PatientInsurance
+\end{lstlisting}
+
+Track relevant policy information, effective dates, status, and coverage.
+
+\subsection{14.3 Coverage Rules}
+
+Support:
+
+\begin{lstlisting}
+Insurance coverage percentage
+Patient responsibility
+Annual deductible
+Coverage limit
+Copayment
+Excluded services
+\end{lstlisting}
+
+Example:
+
+\begin{lstlisting}
+80% insurance
+20% patient
+\end{lstlisting}
+
+\subsection{14.4 Claims}
+
+Create:
+
+\begin{lstlisting}
+InsuranceClaim
+InsuranceClaimItem
+\end{lstlisting}
+
+Workflow:
+
+\begin{lstlisting}
+Invoice
+    |
+    v
+Claim
+    |
+    v
+Submitted
+    |
+    +----> Approved
+    |
+    +----> Rejected
+    |
+    v
+Payment / Reconciliation
+\end{lstlisting}
+
+\task{Create claim.}
+\task{Submit claim.}
+\task{Track claim status.}
+\task{Record rejection reason.}
+\task{Support resubmission where applicable.}
+\task{Reconcile insurer payments.}
+
+% ============================================================
+\section{Phase 15 --- Accounting Ledger}
+
+This phase turns the finance module into an ERP-style accounting system.
+
+\subsection{15.1 Accounting Models}
+
+Create:
+
+\begin{lstlisting}
+Account
+JournalEntry
+JournalEntryLine
+\end{lstlisting}
+
+\subsection{15.2 Chart of Accounts}
+
+Example:
+
+\begin{lstlisting}
+1000 Assets
+1100 Cash
+1200 Accounts Receivable
+1300 Inventory
+
+2000 Liabilities
+2100 Insurance Payable
+
+4000 Revenue
+4100 Consultation Revenue
+4200 Pharmacy Revenue
+\end{lstlisting}
+
+The actual chart of accounts must be defined with the accounting
+requirements of the target organization/jurisdiction.
+
+\subsection{15.3 Double-Entry Accounting}
+
+Every financial transaction must satisfy:
+
+\[
+\text{Total Debits} = \text{Total Credits}
+\]
+
+Example medication transaction:
+
+\begin{lstlisting}
+Medication dispensed
+    |
+    +-- Debit:  Patient Receivable
+    |
+    +-- Credit: Pharmacy Inventory
+\end{lstlisting}
+
+\task{Implement balanced journal entries.}
+\task{Prevent unbalanced entries.}
+\task{Audit financial entries.}
+\task{Define reversal instead of destructive modification for finalized entries.}
+
+% ============================================================
+\section{Phase 16 --- Payments}
+
+Create:
+
+\begin{lstlisting}
+Payment
+PaymentMethod
+Refund
+\end{lstlisting}
+
+Support:
+
+\begin{lstlisting}
+Cash
+Card
+Bank Transfer
+Insurance
+\end{lstlisting}
+
+Workflow:
+
+\begin{lstlisting}
+Invoice
+    |
+    v
+Payment
+    |
+    v
+Receipt
+    |
+    v
+Ledger Entry
+\end{lstlisting}
+
+Tasks:
+
+\task{Record payments.}
+\task{Generate receipts.}
+\task{Support partial payments if required.}
+\task{Support refunds.}
+\task{Prevent duplicate payment processing.}
+\task{Create corresponding accounting entries.}
+\task{Audit all payment operations.}
+
+% ============================================================
+\section{Phase 17 --- End-to-End Cross-Module Transaction}
+
+Implement the primary MediFlow transaction.
+
+\begin{lstlisting}
+Patient checks in
+        |
+        v
+Doctor consultation
+        |
+        v
+Doctor prescribes medication
+        |
+        v
+Pharmacist receives prescription
+        |
+        v
+Database transaction
+        |
+        v
+SELECT FOR UPDATE
+        |
+        v
+Batch locked
+        |
+        v
+Stock reserved
+        |
+        v
+Medication dispensed
+        |
+        v
+StockMovement created
+        |
+        v
+InvoiceItem created
+        |
+        v
+JournalEntry created
+        |
+        v
+AuditLog created
+        |
+        v
+COMMIT
+\end{lstlisting}
+
+This workflow must be implemented through a dedicated service/domain layer,
+not through a large DRF view.
+
+% ============================================================
+\section{Phase 18 --- Notifications and Background Jobs}
+
+Create \texttt{apps.notifications} and configure Celery.
+
+\subsection{18.1 Notifications}
+
+Implement support for:
+
+\task{Appointment reminders.}
+\task{Prescription notifications.}
+\task{Low-stock alerts.}
+\task{Expiration alerts.}
+\task{Insurance claim updates.}
+\task{Payment reminders.}
+
+\subsection{18.2 Scheduled Jobs}
+
+Examples:
+
+\begin{lstlisting}
+Every morning
+    -> check expiring medication
+
+Every hour
+    -> check low-stock products
+
+Daily
+    -> appointment reminders
+
+Weekly
+    -> financial reports
+\end{lstlisting}
+
+\task{Configure Celery worker.}
+\task{Configure Celery Beat.}
+\task{Define retry policy.}
+\task{Handle failed jobs.}
+\task{Make important jobs idempotent.}
+\task{Monitor task failures.}
+
+% ============================================================
+\section{Phase 19 --- Reporting and Dashboards}
+
+\subsection{19.1 Clinical Dashboard}
+
+Display:
+
+\begin{lstlisting}
+Today's patients
+Today's appointments
+Admissions
+Discharges
+Active patients
+\end{lstlisting}
+
+\subsection{19.2 Pharmacy Dashboard}
+
+Display:
+
+\begin{lstlisting}
+Total inventory
+Low stock
+Expiring soon
+Expired stock
+Dispensed today
+\end{lstlisting}
+
+\subsection{19.3 Finance Dashboard}
+
+Display:
+
+\begin{lstlisting}
+Revenue
+Outstanding invoices
+Payments
+Insurance claims
+Rejected claims
+Accounts receivable
+\end{lstlisting}
+
+\subsection{19.4 Management Dashboard}
+
+Combine major operational indicators:
+
+\begin{lstlisting}
+Patients
+Appointments
+Admissions
+Revenue
+Inventory value
+Low-stock alerts
+Insurance activity
+\end{lstlisting}
+
+All dashboard data must respect the user's permissions and organizational
+scope.
+
+% ============================================================
+\section{Phase 20 --- Security and Privacy}
+
+Security must be treated as a continuous requirement rather than a final
+checkbox.
+
+\subsection{20.1 Authentication Security}
+
+\task{Enforce strong password policy.}
+\task{Use secure password hashing.}
+\task{Configure token expiration.}
+\task{Implement secure session management.}
+\task{Implement login throttling/rate limiting.}
+\task{Consider account lockout policies.}
+
+\subsection{20.2 Authorization}
+
+Verify examples such as:
+
+\begin{lstlisting}
+Accountant -> invoice       YES
+Accountant -> diagnosis     NO
+
+Doctor -> diagnosis         YES
+Doctor -> accounting ledger NO
+
+Pharmacist -> inventory     YES
+Pharmacist -> diagnosis     NO
+\end{lstlisting}
+
+Do not rely solely on frontend hiding. Enforce authorization on the
+backend/API.
+
+\subsection{20.3 Field-Level and Object-Level Access}
+
+For example:
+
+\begin{lstlisting}
+Patient
+    +-- demographics -> receptionist: YES
+    +-- diagnosis    -> receptionist: NO
+    +-- invoice      -> accountant: YES
+    +-- prescription -> pharmacist: YES
+\end{lstlisting}
+
+Implement queryset filtering and field-level serialization where necessary.
+
+\subsection{20.4 API Security}
+
+\task{Implement object-level permissions.}
+\task{Implement organization-level data isolation.}
+\task{Implement rate limiting where required.}
+\task{Validate all input.}
+\task{Prevent unauthorized object access.}
+\task{Use Django/DRF protections against injection attacks.}
+\task{Configure CSRF correctly.}
+\task{Configure CORS correctly.}
+\task{Configure secure HTTP headers.}
+\task{Protect secrets using environment variables or a secret manager.}
+\task{Never expose sensitive data in logs.}
+
+\subsection{20.5 Healthcare Privacy}
+
+Before production deployment, identify the applicable legal and regulatory
+requirements for the target jurisdiction. Do not assume that merely using
+Django or encryption makes a system compliant.
+
+Implement appropriate technical controls for:
+
+\begin{itemize}
+    \item least-privilege access
+    \item auditability
+    \item data minimization
+    \item encryption in transit
+    \item encryption at rest where required
+    \item secure backups
+    \item access monitoring
+    \item retention and deletion policies
+\end{itemize}
+
+% ============================================================
+\section{Phase 21 --- Testing}
+
+This project requires extensive automated testing.
+
+\subsection{21.1 Unit Tests}
+
+Test:
+
+\task{Models.}
+\task{Services.}
+\task{Validators.}
+\task{Permission classes.}
+\task{Business calculations.}
+\task{Financial calculations.}
+\task{Inventory calculations.}
+
+\subsection{21.2 API Tests}
+
+Test all major:
+
+\begin{lstlisting}
+POST
+GET
+PATCH
+DELETE
+\end{lstlisting}
+
+operations, including authentication and authorization behavior.
+
+\subsection{21.3 RBAC Tests}
+
+Example:
+
+\begin{lstlisting}
+Doctor -> patient data             YES
+Doctor -> accounting data          NO
+Pharmacist -> inventory            YES
+Accountant -> clinical diagnosis   NO
+\end{lstlisting}
+
+Create tests for every sensitive role/module combination.
+
+\subsection{21.4 Concurrency Tests}
+
+Simulate:
+
+\begin{lstlisting}
+100 concurrent requests
+        |
+        v
+1 available medication unit
+\end{lstlisting}
+
+Expected result:
+
+\begin{lstlisting}
+Only one successful allocation.
+No negative stock.
+No duplicate allocation.
+All unsuccessful requests receive a safe error.
+\end{lstlisting}
+
+\subsection{21.5 Accounting Tests}
+
+Verify:
+
+\[
+\text{Debit} = \text{Credit}
+\]
+
+for every finalized journal entry.
+
+\subsection{21.6 End-to-End Workflow Tests}
+
+Test:
+
+\begin{lstlisting}
+Patient
+    |
+    v
+Appointment
+    |
+    v
+Check-in
+    |
+    v
+Consultation
+    |
+    v
+Prescription
+    |
+    v
+Dispensing
+    |
+    v
+Invoice
+    |
+    v
+Payment
+\end{lstlisting}
+
+% ============================================================
+\section{Phase 22 --- Performance}
+
+\subsection{22.1 Database Performance}
+
+\task{Analyze slow queries.}
+\task{Add appropriate indexes.}
+\task{Use \texttt{select\_related} correctly.}
+\task{Use \texttt{prefetch\_related} correctly.}
+\task{Eliminate N+1 query problems.}
+\task{Configure database connection pooling where appropriate.}
+\task{Use database constraints to enforce important invariants.}
+
+\subsection{22.2 Caching}
+
+Use Redis where appropriate for:
+
+\begin{lstlisting}
+Frequently accessed data
+Sessions
+Rate limiting
+Temporary calculations
+\end{lstlisting}
+
+Do not cache sensitive data without a clear invalidation and authorization
+strategy.
+
+\subsection{22.3 Load Testing}
+
+Test progressively:
+
+\begin{lstlisting}
+100 concurrent users
+500 concurrent users
+1000 concurrent users
+\end{lstlisting}
+
+Pay particular attention to:
+
+\begin{lstlisting}
+Inventory allocation
+Appointment booking
+Billing
+Authentication
+High-volume reporting
+\end{lstlisting}
+
+% ============================================================
+\section{Phase 23 --- Observability}
+
+Implement:
+
+\begin{lstlisting}
+Application logs
+Error tracking
+Performance monitoring
+Audit logs
+Health checks
+\end{lstlisting}
+
+Create health endpoints:
+
+\begin{lstlisting}
+/health/
+/health/db/
+/health/redis/
+\end{lstlisting}
+
+Monitor:
+
+\begin{lstlisting}
+Request latency
+5xx errors
+Database errors
+Celery failures
+Queue length
+Background job failures
+\end{lstlisting}
+
+Use structured logging where practical.
+
+% ============================================================
+\section{Phase 24 --- API Documentation}
+
+Use OpenAPI/Swagger through a documented DRF-compatible solution.
+
+Document endpoints such as:
+
+\begin{lstlisting}
+/api/v1/auth/
+
+/api/v1/patients/
+/api/v1/appointments/
+/api/v1/encounters/
+/api/v1/prescriptions/
+
+/api/v1/inventory/
+/api/v1/batches/
+/api/v1/dispensing/
+
+/api/v1/invoices/
+/api/v1/payments/
+/api/v1/insurance/
+
+/api/v1/reports/
+\end{lstlisting}
+
+For each endpoint document:
+
+\task{Authentication requirements.}
+\task{Required permissions.}
+\task{Request parameters.}
+\task{Request body.}
+\task{Validation rules.}
+\task{Successful response.}
+\task{Error responses.}
+\task{Pagination/filtering behavior where applicable.}
+
+% ============================================================
+\section{Phase 25 --- Deployment}
+
+Recommended production architecture:
+
+\begin{lstlisting}
+                    Internet
+                       |
+                       v
+                 Reverse Proxy
+                       |
+              +--------+--------+
+              |                 |
+              v                 v
+          Django API         Frontend
+              |
+       +------+------+
+       |             |
+       v             v
+ PostgreSQL        Redis
+                     |
+                +----+----+
+                |         |
+                v         v
+             Celery    Celery
+             Worker     Beat
+\end{lstlisting}
+
+Tasks:
+
+\task{Create production settings.}
+\task{Configure production environment variables.}
+\task{Configure production PostgreSQL.}
+\task{Configure production Redis.}
+\task{Configure Celery worker.}
+\task{Configure Celery Beat.}
+\task{Configure HTTPS.}
+\task{Configure domain and DNS.}
+\task{Configure static files.}
+\task{Configure media storage.}
+\task{Configure database backups.}
+\task{Configure monitoring.}
+\task{Configure log collection.}
+\task{Run production migrations safely.}
+\task{Document rollback procedures.}
+
+% ============================================================
+\section{Phase 26 --- Backup and Disaster Recovery}
+
+Because MediFlow stores clinical and financial data, backup and recovery
+must be treated as first-class functionality.
+
+\task{Configure automated PostgreSQL backups.}
+\task{Define backup retention periods.}
+\task{Store backups securely.}
+\task{Test restoration from backup.}
+\task{Define point-in-time recovery strategy where required.}
+\task{Document disaster recovery procedures.}
+\task{Document database migration recovery procedures.}
+\task{Define Recovery Point Objective (RPO).}
+\task{Define Recovery Time Objective (RTO).}
+
+% ============================================================
+\section{Phase 27 --- Final End-to-End Validation}
+
+\subsection{27.1 Outpatient Scenario}
+
+Run the complete workflow:
+
+\begin{lstlisting}
+Register patient
+    |
+    v
+Book appointment
+    |
+    v
+Check in
+    |
+    v
+Doctor consultation
+    |
+    v
+Diagnosis
+    |
+    v
+Prescription
+    |
+    v
+Dispensing
+    |
+    v
+Invoice
+    |
+    v
+Payment
+\end{lstlisting}
+
+Verify that all clinical, inventory, financial, and audit records are
+consistent.
+
+\subsection{27.2 Inpatient Scenario}
+
+Run:
+
+\begin{lstlisting}
+Patient
+    |
+    v
+Admission
+    |
+    v
+Bed assignment
+    |
+    v
+Daily treatment
+    |
+    v
+Medication
+    |
+    v
+Laboratory procedures
+    |
+    v
+Room charges
+    |
+    v
+Discharge
+    |
+    v
+Final invoice
+    |
+    v
+Insurance claim
+\end{lstlisting}
+
+\subsection{27.3 Inventory Race Condition Scenario}
+
+Run:
+
+\begin{lstlisting}
+Doctor A ----\
+              >---- 1 available vial
+Doctor B ----/
+\end{lstlisting}
+
+Verify:
+
+\begin{lstlisting}
+Exactly one allocation succeeds.
+The other transaction fails safely.
+Stock never becomes negative.
+No duplicate allocation exists.
+Audit records are correct.
+Financial records are correct.
+\end{lstlisting}
+
+\subsection{27.4 Permission Isolation Scenario}
+
+Verify:
+
+\begin{lstlisting}
+Accountant
+    -> Invoice: YES
+    -> Diagnosis: NO
+
+Doctor
+    -> Diagnosis: YES
+    -> Ledger: NO
+
+Pharmacist
+    -> Inventory: YES
+    -> Unauthorized clinical information: NO
+\end{lstlisting}
+
+% ============================================================
+\section{Recommended Development Order}
+
+The following sequence should be used as the main implementation order:
+
+\begin{enumerate}
+    \item Project architecture
+    \item Django foundation
+    \item PostgreSQL and Docker
+    \item Custom User
+    \item Organizations
+    \item RBAC
+    \item Authentication
+    \item Audit system
+    \item Patient management
+    \item Scheduling
+    \item Appointments
+    \item Patient check-in
+    \item Admissions
+    \item EHR
+    \item Vitals
+    \item Diagnoses
+    \item Medication catalog
+    \item Prescriptions
+    \item Inventory catalog
+    \item Warehouses
+    \item Inventory batches
+    \item Stock ledger
+    \item Concurrency and locking
+    \item Prescription-to-inventory integration
+    \item Dispensing
+    \item Finance catalog
+    \item Patient folio
+    \item Invoices
+    \item Inventory-to-finance integration
+    \item Insurance
+    \item Payments
+    \item Accounting ledger
+    \item Full clinical-to-inventory-to-finance integration
+    \item Notifications
+    \item Celery
+    \item Reports
+    \item Security hardening
+    \item Automated tests
+    \item Performance optimization
+    \item Observability
+    \item API documentation
+    \item Deployment
+    \item Backups
+    \item Disaster recovery
+    \item End-to-end testing
+    \item Production release
+\end{enumerate}
+
+% ============================================================
+\section{Business Logic Architecture}
+
+A major architectural rule for MediFlow is:
+
+\begin{center}
+\Large
+\textbf{Do not place complex business logic directly inside DRF views.}
+\end{center}
+
+Use a layered architecture:
+
+\begin{lstlisting}
+HTTP Request
+    |
+    v
+DRF View / ViewSet
+    |
+    v
+Serializer
+    |
+    v
+Service / Domain Layer
+    |
+    v
+Models / Repository / Database
+\end{lstlisting}
+
+For complex workflows, the service layer should own transaction boundaries
+and business invariants.
+
+\subsection{Example: Dispensing Service}
+
+A conceptual implementation should look like:
+
+\begin{lstlisting}
+POST /prescriptions/{id}/dispense/
+            |
+            v
+DispensePrescriptionService
+            |
+            v
+transaction.atomic()
+            |
+            v
+select_for_update()
+            |
+            v
+Validate prescription
+            |
+            v
+Find eligible batch
+            |
+            v
+Check available quantity
+            |
+            v
+Reserve / deduct stock
+            |
+            v
+Create StockMovement
+            |
+            v
+Create InvoiceItem
+            |
+            v
+Create JournalEntry
+            |
+            v
+Create AuditLog
+            |
+            v
+COMMIT
+\end{lstlisting}
+
+This structure keeps concurrency handling, financial consistency, inventory
+logic, and auditing together as one controlled business operation.
+
+% ============================================================
+\section{Definition of Done}
+
+A feature should not be considered complete merely because its endpoint
+works.
+
+For every significant feature, verify:
+
+\begin{enumerate}
+    \item Database model is correct.
+    \item Database constraints are defined.
+    \item Business rules are implemented in the service/domain layer.
+    \item API endpoint is implemented.
+    \item Authentication is enforced.
+    \item Authorization is enforced.
+    \item Input validation is implemented.
+    \item Audit behavior is implemented.
+    \item Automated tests are written.
+    \item Error handling is implemented.
+    \item Documentation is updated.
+    \item Performance has been considered.
+    \item Cross-module effects have been tested.
+\end{enumerate}
+
+For sensitive operations, additionally verify:
+
+\begin{itemize}
+    \item Transaction boundaries
+    \item Concurrency behavior
+    \item Idempotency
+    \item Auditability
+    \item Data visibility
+    \item Financial consistency
+\end{itemize}
+
+% ============================================================
+\section{MediFlow Completion Checklist}
+
+\subsection*{Foundation}
+\begin{itemize}
+    \task{Repository configured}
+    \task{Django project configured}
+    \task{PostgreSQL configured}
+    \task{Redis configured}
+    \task{Docker environment configured}
+    \task{Development and production settings separated}
+\end{itemize}
+
+\subsection*{Identity and Access}
+\begin{itemize}
+    \task{Custom User implemented}
+    \task{Roles implemented}
+    \task{Permissions implemented}
+    \task{Organization isolation implemented}
+    \task{Authentication implemented}
+    \task{Authorization tested}
+\end{itemize}
+
+\subsection*{Clinical}
+\begin{itemize}
+    \task{Patient management}
+    \task{Appointments}
+    \task{Check-in}
+    \task{Admissions}
+    \task{Beds}
+    \task{Encounters}
+    \task{Clinical notes}
+    \task{Diagnoses}
+    \task{Vitals}
+    \task{Medical history}
+    \task{Medication catalog}
+    \task{Prescriptions}
+\end{itemize}
+
+\subsection*{Inventory}
+\begin{itemize}
+    \task{Products}
+    \task{Categories}
+    \task{Manufacturers}
+    \task{Suppliers}
+    \task{Warehouses}
+    \task{Storage locations}
+    \task{Inventory batches}
+    \task{Expiration tracking}
+    \task{Stock ledger}
+    \task{FEFO}
+    \task{Stock reservation}
+    \task{Dispensing}
+    \task{Concurrency locking}
+    \task{Temperature-controlled inventory}
+\end{itemize}
+
+\subsection*{Finance}
+\begin{itemize}
+    \task{Services and prices}
+    \task{Patient folio}
+    \task{Invoices}
+    \task{Invoice items}
+    \task{Insurance providers}
+    \task{Insurance plans}
+    \task{Patient insurance}
+    \task{Claims}
+    \task{Payments}
+    \task{Refunds}
+    \task{Chart of accounts}
+    \task{Journal entries}
+    \task{Double-entry accounting}
+\end{itemize}
+
+\subsection*{Cross-Module Integration}
+\begin{itemize}
+    \task{Clinical to inventory}
+    \task{Inventory to finance}
+    \task{Clinical to finance}
+    \task{Insurance to finance}
+    \task{Audit across all modules}
+    \task{Notifications}
+\end{itemize}
+
+\subsection*{Engineering Quality}
+\begin{itemize}
+    \task{Unit tests}
+    \task{API tests}
+    \task{RBAC tests}
+    \task{Concurrency tests}
+    \task{Accounting tests}
+    \task{End-to-end tests}
+    \task{Performance tests}
+    \task{Logging}
+    \task{Monitoring}
+    \task{Health checks}
+    \task{OpenAPI documentation}
+\end{itemize}
+
+\subsection*{Production}
+\begin{itemize}
+    \task{Production configuration}
+    \task{HTTPS}
+    \task{Domain}
+    \task{Database backups}
+    \task{Backup restoration tested}
+    \task{Disaster recovery plan}
+    \task{Monitoring}
+    \task{Deployment documentation}
+    \task{Rollback procedure}
+    \task{Final security review}
+    \task{Final end-to-end validation}
+\end{itemize}
+
+% ============================================================
+\section{Final Architecture Target}
+
+The completed MediFlow system should conceptually provide:
+
+\begin{lstlisting}
+                         MediFlow ERP
+                              |
+       +----------------------+----------------------+
+       |                      |                      |
+       v                      v                      v
+   Accounts              Organizations           Audit
+       |                      |                      |
+       +----------------------+----------------------+
+                              |
+          +-------------------+-------------------+
+          |                   |                   |
+          v                   v                   v
+      Clinical           Scheduling           Inventory
+          |                   |                   |
+          |                   |                   |
+          +-------------------+-------------------+
+                              |
+                              v
+                           Finance
+                              |
+                    +---------+---------+
+                    |                   |
+                    v                   v
+                Insurance           Accounting
+\end{lstlisting}
+
+The system's central design principle is:
+
+\begin{center}
+\textbf{
+One patient record, one operational source of truth,
+transactionally consistent workflows, strict authorization,
+and complete accountability.
+}
+\end{center}
+
+\end{document}
