@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+from django.db import IntegrityError, transaction
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from rest_framework import status
@@ -21,12 +22,16 @@ from apps.commons.permissions import (
     RoleBasedPermission,
 )
 from apps.organizations.models import (
+    Bed,
     Department,
     DoctorProfile,
     Hospital,
     NurseProfile,
+    OperatingRoom,
     Organization,
+    Room,
     StaffProfile,
+    Ward,
 )
 
 
@@ -137,6 +142,94 @@ class OrganizationStaffModelsTests(TestCase):
         )
         with self.assertRaises(ValidationError):
             mismatched.clean()
+
+    def test_ward_room_bed_and_operating_room_models(self):
+        ward = Ward.objects.create(
+            hospital=self.hosp1,
+            department=self.dept1,
+            name="Intensive Care Unit A",
+            code="WARD-ICU-A",
+            ward_type=Ward.WardType.ICU,
+            floor=3,
+        )
+        self.assertEqual(str(ward), "Intensive Care Unit A - Fl. 3 (North General)")
+
+        room = Room.objects.create(
+            ward=ward,
+            room_number="301-A",
+            room_type=Room.RoomType.ICU,
+            daily_rate=Decimal("250.00"),
+        )
+        self.assertEqual(str(room), "Room 301-A (Intensive Care Unit A)")
+
+        bed = Bed.objects.create(
+            room=room,
+            bed_number="BED-01",
+            status=Bed.BedStatus.AVAILABLE,
+        )
+        self.assertEqual(str(bed), "Bed BED-01 - Room 301-A")
+
+        or_room = OperatingRoom.objects.create(
+            hospital=self.hosp1,
+            department=self.dept1,
+            name="Cardiothoracic OR 1",
+            code="OR-CARD-01",
+            specialty="Cardiothoracic Surgery",
+            status=OperatingRoom.ORStatus.AVAILABLE,
+        )
+        self.assertEqual(str(or_room), "Cardiothoracic OR 1 (North General)")
+
+    def test_facility_models_clean_validation_and_unique_constraints(self):
+        dept2 = Department.objects.create(
+            hospital=self.hosp2,
+            name="Pediatrics South",
+            code="PEDS",
+        )
+        # Ward with department belonging to another hospital must fail clean()
+        mismatched_ward = Ward(
+            hospital=self.hosp1,
+            department=dept2,  # belongs to hosp2!
+            name="Invalid Ward",
+            code="WARD-INV",
+            floor=1,
+        )
+        with self.assertRaises(ValidationError):
+            mismatched_ward.clean()
+
+        # OperatingRoom with mismatched department must fail clean()
+        mismatched_or = OperatingRoom(
+            hospital=self.hosp1,
+            department=dept2,  # belongs to hosp2!
+            name="Invalid OR",
+            code="OR-INV",
+        )
+        with self.assertRaises(ValidationError):
+            mismatched_or.clean()
+
+        # Unique constraints: duplicate ward code per hospital
+        Ward.objects.create(
+            hospital=self.hosp1,
+            name="Ward 1",
+            code="W-01",
+            floor=1,
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Ward.objects.create(
+                    hospital=self.hosp1,
+                    name="Duplicate Code Ward",
+                    code="W-01",
+                    floor=2,
+                )
+
+        # Same code in different hospital is allowed
+        ward_hosp2 = Ward.objects.create(
+            hospital=self.hosp2,
+            name="Ward 1 South",
+            code="W-01",
+            floor=1,
+        )
+        self.assertIsNotNone(ward_hosp2.pk)
 
 
 class RBACAndPermissionsTests(APITestCase):
@@ -257,4 +350,117 @@ class RBACAndPermissionsTests(APITestCase):
         owner_perm = IsOwner()
         self.assertTrue(owner_perm.has_permission(req, None))
         self.assertTrue(owner_perm.has_object_permission(req, None, staff))
+
+
+class FacilityEndpointsAPITests(APITestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(
+            name="Apex Health",
+            legal_name="Apex Health LLC",
+            tax_id="TAX-APX1",
+            address="100 Medical Way",
+            email="apex@health.com",
+            phone_number="+998901110001",
+        )
+        self.hospital = Hospital.objects.create(
+            organization=self.org,
+            name="Apex General",
+            code="AG-01",
+            address="100 Medical Way",
+            city="Tashkent",
+            phone_number="+998901110002",
+            email="ag@apex.com",
+        )
+        self.dept = Department.objects.create(
+            hospital=self.hospital,
+            name="Cardiology",
+            code="CARD",
+        )
+        self.admin_user = User.objects.create_user(
+            email="facility.admin@apex.com",
+            phone_number="+998901110003",
+            full_name="Facility Administrator",
+            password="StrongPassword123!",
+            role=User.Role.ADMIN,
+            is_active=True,
+        )
+        self.doctor_user = User.objects.create_user(
+            email="facility.doc@apex.com",
+            phone_number="+998901110004",
+            full_name="Dr. Facility",
+            password="StrongPassword123!",
+            role=User.Role.DOCTOR,
+            is_active=True,
+        )
+
+    def test_facility_crud_by_admin_and_forbidden_for_regular_staff(self):
+        # 1. Unauthenticated gets 401
+        res = self.client.get("/api/organizations/wards/")
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # 2. Doctor gets 403 on write
+        self.client.force_authenticate(user=self.doctor_user)
+        ward_payload = {
+            "hospital": str(self.hospital.pk),
+            "department": str(self.dept.pk),
+            "name": "Cardiology Ward",
+            "code": "WARD-CARD-1",
+            "ward_type": Ward.WardType.CARDIAC if hasattr(Ward.WardType, 'CARDIAC') else Ward.WardType.ICU,
+            "floor": 2,
+        }
+        res_forbidden = self.client.post("/api/organizations/wards/", ward_payload, format="json")
+        self.assertEqual(res_forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 3. Admin successfully creates Ward
+        self.client.force_authenticate(user=self.admin_user)
+        res_ward = self.client.post("/api/organizations/wards/", ward_payload, format="json")
+        self.assertEqual(res_ward.status_code, status.HTTP_201_CREATED)
+        ward_id = res_ward.data["id"]
+
+        # 4. Admin creates Room inside Ward
+        room_payload = {
+            "ward": ward_id,
+            "room_number": "201-C",
+            "room_type": Room.RoomType.ICU,
+            "daily_rate": "150.00",
+        }
+        res_room = self.client.post("/api/organizations/rooms/", room_payload, format="json")
+        self.assertEqual(res_room.status_code, status.HTTP_201_CREATED)
+        room_id = res_room.data["id"]
+
+        # 5. Admin creates Bed inside Room
+        bed_payload = {
+            "room": room_id,
+            "bed_number": "B-01",
+            "status": Bed.BedStatus.AVAILABLE,
+        }
+        res_bed = self.client.post("/api/organizations/beds/", bed_payload, format="json")
+        self.assertEqual(res_bed.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res_bed.data["bed_number"], "B-01")
+
+        # 6. Admin creates Operating Room
+        or_payload = {
+            "hospital": str(self.hospital.pk),
+            "department": str(self.dept.pk),
+            "name": "Hybrid Cardiovascular Suite",
+            "code": "OR-HCV-01",
+            "specialty": "Cardiology",
+            "status": OperatingRoom.ORStatus.AVAILABLE,
+        }
+        res_or = self.client.post("/api/organizations/operating-rooms/", or_payload, format="json")
+        self.assertEqual(res_or.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res_or.data["name"], "Hybrid Cardiovascular Suite")
+
+        # 7. Authenticated user can read facilities
+        self.client.force_authenticate(user=self.doctor_user)
+        list_wards = self.client.get("/api/organizations/wards/")
+        self.assertEqual(list_wards.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_wards.data["count"], 1)
+        self.assertEqual(list_wards.data["results"][0]["hospital_name"], "Apex General")
+
+        # 8. Retrieve single ward triggers audit view
+        retrieve_ward = self.client.get(f"/api/organizations/wards/{ward_id}/")
+        self.assertEqual(retrieve_ward.status_code, status.HTTP_200_OK)
+        self.assertEqual(retrieve_ward.data["name"], "Cardiology Ward")
+
 

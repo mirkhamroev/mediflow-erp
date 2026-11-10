@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Organization, Hospital, Department, StaffProfile, DoctorProfile, NurseProfile
+from .models import (Organization, Hospital, Department, Ward, Bed, Room,
+                     StaffProfile, DoctorProfile, NurseProfile, OperatingRoom)
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -89,4 +90,101 @@ class NurseProfileSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+# ---------------------------------------------------------------------------
+# Facility Serializers (Ward, Room, Bed, OperatingRoom)
+# ---------------------------------------------------------------------------
+
+class BedSerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    room_number = serializers.CharField(source='room.room_number', read_only=True)
+    ward_id = serializers.UUIDField(source='room.ward_id', read_only=True)
+    ward_name = serializers.CharField(source='room.ward.name', read_only=True)
+
+    class Meta:
+        model = Bed
+        fields = [
+            'id', 'room', 'room_number', 'ward_id', 'ward_name',
+            'bed_number', 'status', 'status_display',
+            'is_active', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class RoomSerializer(serializers.ModelSerializer):
+    room_type_display = serializers.CharField(source='get_room_type_display', read_only=True)
+    ward_name = serializers.CharField(source='ward.name', read_only=True)
+    hospital_name = serializers.CharField(source='ward.hospital.name', read_only=True)
+    beds = BedSerializer(many=True, read_only=True)
+    total_beds = serializers.IntegerField(source='beds.count', read_only=True)
+
+    class Meta:
+        model = Room
+        fields = [
+            'id', 'ward', 'ward_name', 'hospital_name',
+            'room_number', 'room_type', 'room_type_display',
+            'daily_rate', 'beds', 'total_beds',
+            'is_active', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_daily_rate(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Daily rate cannot be negative.")
+        return value
+
+
+class WardSerializer(serializers.ModelSerializer):
+    ward_type_display = serializers.CharField(source='get_ward_type_display', read_only=True)
+    hospital_name = serializers.CharField(source='hospital.name', read_only=True)
+    department_name = serializers.CharField(source='department.name', read_only=True)
+    total_rooms = serializers.IntegerField(source='rooms.count', read_only=True)
+
+    class Meta:
+        model = Ward
+        fields = [
+            'id', 'hospital', 'hospital_name',
+            'department', 'department_name',
+            'name', 'code', 'ward_type', 'ward_type_display',
+            'floor', 'total_rooms', 'is_active',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        hospital = attrs.get('hospital') or getattr(self.instance, 'hospital', None)
+        department = attrs.get('department', getattr(self.instance, 'department', None))
+
+        if department and hospital and department.hospital_id != hospital.id:
+            raise serializers.ValidationError({
+                'department': "Selected department does not belong to the specified hospital."
+            })
+        return attrs
+
+
+class OperatingRoomSerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    hospital_name = serializers.CharField(source='hospital.name', read_only=True)
+    department_name = serializers.CharField(source='department.name', read_only=True)
+
+    class Meta:
+        model = OperatingRoom
+        fields = [
+            'id', 'hospital', 'hospital_name',
+            'department', 'department_name',
+            'name', 'code', 'specialty',
+            'status', 'status_display',
+            'is_active', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        hospital = attrs.get('hospital') or getattr(self.instance, 'hospital', None)
+        department = attrs.get('department', getattr(self.instance, 'department', None))
+
+        if department and hospital and department.hospital_id != hospital.id:
+            raise serializers.ValidationError({
+                'department': "Selected department does not belong to the specified hospital."
+            })
+        return attrs
 

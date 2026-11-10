@@ -2,6 +2,7 @@ from django.db import models
 from apps.accounts.models import User
 from apps.commons.mixins import AuditableModelMixin
 import uuid
+from decimal import Decimal
 
 # Create your models here.
 
@@ -161,4 +162,134 @@ class NurseProfile(AuditableModelMixin, models.Model):
     def __str__(self):
         return f"Nurse {self.staff_profile.user.full_name}"
 
-    
+
+class Ward(AuditableModelMixin, models.Model):
+    class WardType(models.TextChoices):
+        GENERAL = 'general', 'General'
+        ICU = 'icu', 'Intensive Care Unit (ICU)'
+        CCU = 'ccu', 'Coronary Care Unit (CCU)'
+        PEDIATRIC = 'pediatric', 'Pediatric'
+        MATERNITY = 'maternity', 'Maternity'
+        SURGICAL = 'surgical', 'Surgical'
+        PSYCHIATRIC = 'psychiatric', 'Psychiatric'
+        ISOLATION = 'isolation', 'Isolation'
+        EMERGENCY = 'emergency', 'Emergency'
+
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name='wards')
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='wards')
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50)
+    ward_type = models.CharField(max_length=50, choices=WardType.choices, default=WardType.GENERAL)
+    floor = models.SmallIntegerField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Ward"
+        verbose_name_plural = "Wards"
+        ordering = ['hospital', 'floor', 'name']
+        constraints = [
+            models.UniqueConstraint(fields=['hospital', 'code'], name="unique_ward_code_per_hospital")
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.department_id and self.hospital_id and self.department.hospital_id != self.hospital_id:
+            raise ValidationError({'department': "Selected department does not belong to the specified hospital."})
+
+    def __str__(self):
+        return f"{self.name} - Fl. {self.floor} ({self.hospital.name})"
+
+
+class Room(AuditableModelMixin, models.Model):
+    class RoomType(models.TextChoices):
+        STANDARD = 'standard', 'Standard'
+        SEMI_PRIVATE = 'semi_private', 'Semi-Private'
+        PRIVATE = 'private', 'Private'
+        ICU = 'icu', 'ICU'
+        ISOLATION = 'isolation', 'Isolation'
+        DELUXE = 'deluxe', 'Deluxe / Suite'
+
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    ward = models.ForeignKey(Ward, on_delete=models.CASCADE, related_name='rooms')
+    room_number = models.CharField(max_length=50)
+    room_type = models.CharField(max_length=50, choices=RoomType.choices, default=RoomType.STANDARD)
+    daily_rate = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Room"
+        verbose_name_plural = "Rooms"
+        ordering = ['ward', 'room_number']
+        constraints = [
+            models.UniqueConstraint(fields=['ward', 'room_number'], name='unique_room_number_per_ward')
+        ]
+
+    def __str__(self):
+        return f"Room {self.room_number} ({self.ward.name})"
+
+
+class Bed(AuditableModelMixin, models.Model):
+    class BedStatus(models.TextChoices):
+        AVAILABLE = 'available', 'Available'
+        OCCUPIED = 'occupied', 'Occupied'
+        RESERVED = 'reserved', 'Reserved'
+        MAINTENANCE = 'maintenance', 'Under Maintenance'
+
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='beds')
+    bed_number = models.CharField(max_length=50)
+    status = models.CharField(max_length=20, choices=BedStatus.choices, default=BedStatus.AVAILABLE)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Bed'
+        verbose_name_plural = 'Beds'
+        ordering = ['room', 'bed_number']
+        constraints = [
+            models.UniqueConstraint(fields=['room', 'bed_number'], name='unique_bed_number_per_room')
+        ]
+
+    def __str__(self):
+        return f"Bed {self.bed_number} - Room {self.room.room_number}"
+
+
+class OperatingRoom(AuditableModelMixin, models.Model):
+    class ORStatus(models.TextChoices):
+        AVAILABLE = 'available', 'Available'
+        IN_USE = 'in_use', 'In Use'
+        CLEANING = 'cleaning', 'Cleaning / Turnover'
+        MAINTENANCE = 'maintenance', 'Under Maintenance'
+
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name='operating_rooms')
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, blank=True, null=True, related_name='operating_rooms')
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50)
+    specialty = models.CharField(max_length=100, blank=True)
+    status = models.CharField(max_length=20, choices=ORStatus.choices, default=ORStatus.AVAILABLE)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Operating Room'
+        verbose_name_plural = 'Operating Rooms'
+        ordering = ['hospital', 'name']
+        constraints = [
+            models.UniqueConstraint(fields=['hospital', 'code'], name='unique_operating_room_code_per_hospital')
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.department_id and self.hospital_id and self.department.hospital_id != self.hospital_id:
+            raise ValidationError({'department': "Selected department does not belong to the specified hospital."})
+
+    def __str__(self):
+        return f"{self.name} ({self.hospital.name})"
