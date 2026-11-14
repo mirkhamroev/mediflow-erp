@@ -1,0 +1,10 @@
+*.venv/*
+*.pyc
+.env
+.DS_Store
+/media/
+/image/
+*db.sqlite3
+*/tests/*
+test_*
+MediFlow_ERP_Project_Task_Description*
